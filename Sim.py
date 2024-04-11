@@ -16,7 +16,7 @@ class Freefall():
         self.a = self.a_init
 
         self.time = []
-        self.state_total = []
+        self.state_total = [[s_init, v_init]]
         self.action_total = []
 
         self.flag_first = True
@@ -50,6 +50,7 @@ class Freefall():
 
     def save_result(self):
         self.state_total = np.array(self.state_total, dtype=np.float64)
+        self.action_total.append(0.0)
         self.action_total = np.array(self.action_total, dtype=np.float64)
 
         dict_result = {
@@ -69,13 +70,9 @@ class Freefall():
         self.t = self.t + self.cycle_time
 
     def get_data(self, action):
-        if self.flag_first:
-            self.flag_first = False
-            self.action_total.append(0.0)
-        else:
-            self.action = action
-            self.action_total.append(self.action)
-            self.update()
+        self.action = action
+        self.action_total.append(self.action)
+        self.update()
         self.time.append(self.t)
         state = [self.s, self.v]
         self.state_total.append(state)
