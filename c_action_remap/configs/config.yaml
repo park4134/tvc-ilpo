@@ -1,0 +1,12 @@
+action:
+  - -150.0
+  - -50.0
+  - 0.0
+  - 50.0
+  - 150.0
+
+units: 128
+layer_num: 1
+batch_size: 128
+learning_rate: 1e-5
+epochs: 100

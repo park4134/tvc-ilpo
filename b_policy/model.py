@@ -3,9 +3,8 @@ from tensorflow.keras import Model, Input
 import tensorflow as tf
 
 class State_Embedding(tf.keras.layers.Layer):
-    def __init__(self, n_latent_action, units, layer_num, lrelu):
+    def __init__(self, units, layer_num, lrelu=0.2):
         super(State_Embedding, self).__init__()
-        self.n_latent_action = n_latent_action
         self.units = units
         self.layer_num = layer_num
         self.lrelu = lrelu
@@ -18,10 +17,6 @@ class State_Embedding(tf.keras.layers.Layer):
         for i in range(self.layer_num):
             self.s_e_lrelu.append(LeakyReLU(alpha=self.lrelu, name = f'State_Embedding_lrelu_{i}'))
             self.s_e_dense.append(Dense(units=2 * self.units, name = f'State_Embedding_Dense_{i+1}'))
-        
-        self.s_e_lrelu_top = LeakyReLU(alpha=self.lrelu, name = 'State_Embedding_lrelu_top')
-        self.s_e_dense_top = Dense(units=self.n_latent_action, name = 'State_Embedding_Dense_top')
-        self.s_e_softmax = Softmax(name='Action_Probability_Softmax')
     
     def call(self, inputs):
         s_e = self.s_e_dense[0](inputs)
@@ -29,14 +24,7 @@ class State_Embedding(tf.keras.layers.Layer):
             s_e = self.s_e_lrelu[i](s_e)
             s_e = self.s_e_dense[i+1](s_e)
 
-
-        e = self.s_e_lrelu_top(s_e)
-        z_p = self.s_e_dense_top(e)
-        z_p = self.s_e_softmax(z_p)
-
-        return e, z_p
-        # return s_e, e, z_p
-
+        return s_e
 
 class Policy_Network(Model):
     def __init__(self, n_state, n_latent_action, units, layer_num, batch_size, lrelu=0.2, is_normalize=False, is_standardize=False):
@@ -51,11 +39,13 @@ class Policy_Network(Model):
         self.is_standardize = is_standardize
 
         self.state_embedding = State_Embedding(
-            n_latent_action = self.n_latent_action,
             units = self.units,
             layer_num = self.layer_num,
             lrelu = self.lrelu
         )
+        self.state_embedding_lrelu_top = LeakyReLU(alpha=self.lrelu, name = 'State_Embedding_lrelu_top')
+        self.state_embedding_dense_top = Dense(units=self.n_latent_action, name = 'State_Embedding_Dense_top')
+        self.state_embedding_softmax = Softmax(name='Action_Probability_Softmax')
 
         self.action_embedding_dense = Dense(units = 2*self.units, name = 'Action_Embedding_Dense')
         self.action_embedding_lrelu = LeakyReLU(alpha = self.lrelu, name = 'Action_Embedding_lrelu')
@@ -78,7 +68,10 @@ class Policy_Network(Model):
         return Model(inputs=[self.input_layer], outputs=self.out)
     
     def call(self, inputs, training=False):
-        e, z_p = self.state_embedding(inputs) # e : (batch, 2*units), z_p : (batch, n_latent_action)
+        s_e = self.state_embedding(inputs) # e : (batch, 2*units), z_p : (batch, n_latent_action)
+        e = self.state_embedding_lrelu_top(s_e)
+        z_p = self.state_embedding_dense_top(e)
+        z_p = self.state_embedding_softmax(z_p)
 
         for latent_act in range(self.n_latent_action):
             z_onehot = tf.one_hot([latent_act], self.n_latent_action)

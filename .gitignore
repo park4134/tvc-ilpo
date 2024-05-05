@@ -1,6 +1,14 @@
+#pycache
+
+/__pycache__
+
 # data directory
 /data
 /runs
 
 # config directory
 /b_policy/configs
+/c_action_rempa/configs
+
+# Dummy ipynb file
+Analysis.ipynb
