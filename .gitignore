@@ -5,6 +5,11 @@
 # data directory
 /data
 /runs
+/train_expert
+/video
+
+# shell file
+*.sh
 
 # config directory
 /b_policy/configs

@@ -1,52 +1,31 @@
 from copy import deepcopy
 from glob import glob
+from tqdm import tqdm
 import tensorflow as tf
 import numpy as np
 import json
-import yaml
+# import yaml
 import math
 import os
 
-class Data_Loader():
-    def __init__(self, sim, num, target_cols, delta_t, batch_size, is_normalize=False, is_standardize=False, shuffle=True):
+class DataLoader():
+    def __init__(self, sim, num, target_cols, delta_t, batch_size, shuffle=True):
         self.sim = sim
         self.num = num
         self.target_cols = target_cols
         self.delta_t = delta_t
         self.batch_size = batch_size
-        self.is_normalize = is_normalize
-        self.is_standardize = is_standardize
         self.shuffle = shuffle
 
     def get_data(self):
-        path = os.path.join(os.getcwd(), 'data', self.sim, f'num_{self.num}', 'sim_result.json')
-        with open(path, 'r') as f:
-            f = f.read()
-            dict_r = json.loads(f)
-        
-        self.s, self.s_next = self.get_s_AND_s_next(dict_r)
+        self.s_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.num}', f's_{self.delta_t}.npy')
+        self.s_next_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.num}', f's_next_{self.delta_t}.npy')
+        self.s = np.load(self.s_path)
+        self.s_next = np.load(self.s_next_path)
+
         self.indices = np.arange(len(self.s))
+        self.len = int(math.ceil(len(self.s) / self.batch_size))
 
-    def get_s_AND_s_next(self, dict_result):
-        cycle_time = round(dict_result['time'][1], 2)
-        patience = int(self.delta_t / cycle_time)
-
-        data = []
-        for col in self.target_cols:
-            data.append(dict_result[col])
-        
-        data = np.transpose(np.array(data, dtype=np.float32))
-
-        if self.is_normalize:
-            self.min = np.min(data, axis=0)
-            self.max = np.max(data, axis=0)
-        
-        elif self.is_standardize:
-            self.mean = np.mean(data, axis=0)
-            self.max = np.std(data, axis=0)
-
-        return deepcopy(data[:len(data)-patience-1,:]), deepcopy(data[patience:,:])
-    
     def split_train_val(self, val_ratio):
         val_idx = np.random.choice(self.indices, size = int(len(self.indices)*val_ratio), replace=False)
         self.s_val = self.s[val_idx]
@@ -68,17 +47,7 @@ class Data_Loader():
         X = self.s_train[batch_idx]
         Y = self.s_next_train[batch_idx]
 
-        if self.is_normalize:
-            X = np.divide((X - self.min), (self.max - self.min))
-            Y = np.divide((Y - self.min), (self.max - self.min))
-            Y = np.subtract(Y, X)
-
-        elif self.is_standardize:
-            X = (X - self.mean) / self.std
-            Y = (Y - self.mean) / self.std
-            Y = np.subtract(Y, X)
-
-        return tf.convert_to_tensor(X, dtype=tf.float32), tf.convert_to_tensor(Y, dtype=tf.float32)
+        return tf.convert_to_tensor(X, dtype=tf.float32), tf.convert_to_tensor(np.subtract(Y, X), dtype=tf.float32)
 
     def get_val_batch(self, idx):
         batch_idx = self.indices_val[idx*self.batch_size:(idx+1)*self.batch_size]
@@ -86,17 +55,15 @@ class Data_Loader():
         X = self.s_val[batch_idx]
         Y = self.s_next_val[batch_idx]
 
-        if self.is_normalize:
-            X = np.divide((X - self.min), (self.max - self.min))
-            Y = np.divide((Y - self.min), (self.max - self.min))
-            Y = np.subtract(Y, X)
+        return tf.convert_to_tensor(X, dtype=tf.float32), tf.convert_to_tensor(np.subtract(Y, X), dtype=tf.float32)
 
-        elif self.is_standardize:
-            X = (X - self.mean) / self.std
-            Y = (Y - self.mean) / self.std
-            Y = np.subtract(Y, X)
+    def get_test_batch(self, idx):
+        batch_idx = self.indices[idx*self.batch_size:(idx+1)*self.batch_size]
 
-        return tf.convert_to_tensor(X, dtype=tf.float32), tf.convert_to_tensor(Y, dtype=tf.float32)
+        X = self.s[batch_idx]
+        Y = self.s_next[batch_idx]
+
+        return tf.convert_to_tensor(X, dtype=tf.float32), tf.convert_to_tensor(np.subtract(Y, X), dtype=tf.float32), tf.convert_to_tensor(Y, dtype=tf.float32)
 
     def on_epoch_end(self):
         self.indices_train = np.arange(len(self.s_train))
@@ -105,16 +72,75 @@ class Data_Loader():
             np.random.shuffle(self.indices_train)
             np.random.shuffle(self.indices_val)
 
+class SeqDataLoader(DataLoader):
+    def __init__(self, sim, num, target_cols, seq, delta_t, batch_size, shuffle=True):
+        super().__init__(
+            sim = sim,
+            num = num,
+            target_cols = target_cols,
+            delta_t = delta_t,
+            batch_size = batch_size
+        )
+        self.seq = seq
+    
+    def get_data(self):
+        self.s_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.num}', f'seq{self.seq}_s_{self.delta_t}.npy')
+        self.s_next_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.num}', f'seq{self.seq}_s_next_{self.delta_t}.npy')
+        self.s = np.load(self.s_path)
+        self.s_next = np.load(self.s_next_path)
+
+        self.indices = np.arange(len(self.s))
+        self.len = int(math.ceil(len(self.s) / self.batch_size))
+            
+    def get_train_batch(self, idx):
+        batch_idx = self.indices_train[idx*self.batch_size:(idx+1)*self.batch_size]
+
+        seq_s = self.s_train[batch_idx]
+        s_next = self.s_next_train[batch_idx]
+        s = self.s_train[batch_idx,-1,:]
+        s = np.reshape(s, (s.shape[0], s.shape[-1]))
+
+        return tf.convert_to_tensor(seq_s, dtype=tf.float32), tf.convert_to_tensor(np.subtract(s_next, s), dtype=tf.float32)
+
+    def get_val_batch(self, idx):
+        batch_idx = self.indices_val[idx*self.batch_size:(idx+1)*self.batch_size]
+
+        seq_s = self.s_val[batch_idx]
+        s_next = self.s_next_val[batch_idx]
+        s = self.s_val[batch_idx,-1,:]
+        s = np.reshape(s, (s.shape[0], s.shape[-1]))
+
+        return tf.convert_to_tensor(seq_s, dtype=tf.float32), tf.convert_to_tensor(np.subtract(s_next, s), dtype=tf.float32)
+
+    def get_test_batch(self, idx):
+        batch_idx = self.indices[idx*self.batch_size:(idx+1)*self.batch_size]
+
+        seq_s = self.s[batch_idx]
+        s_next = self.s_next[batch_idx]
+        s = self.s[batch_idx,-1,:]
+        s = np.reshape(s, (s.shape[0], s.shape[-1]))
+
+        return tf.convert_to_tensor(seq_s, dtype=tf.float32), tf.convert_to_tensor(np.subtract(s_next, s), dtype=tf.float32), tf.convert_to_tensor(s_next, dtype=tf.float32)
+
 if __name__ == '__main__':
-    dataloader = Data_Loader(
-        sim = 'freefall',
-        num = 2,
-        target_cols=['s', 'v'],
-        delta_t=0.1,
+    # dataloader = DataLoader(
+    #     sim = 'LunarLander-v2',
+    #     num = 0,
+    #     target_cols=['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w'],
+    #     delta_t=0.2,
+    #     batch_size=128
+    # )
+
+    dataloader = SeqDataLoader(
+        sim = 'LunarLander-v2',
+        num = 0,
+        target_cols=['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w'],
+        seq = 10,
+        delta_t=0.02,
         batch_size=128
     )
 
-    dataloader.get_data()
+    dataloader.get_sequenec_data()
     dataloader.split_train_val(0.2)
     x, y = dataloader.get_train_batch(0)
     print(x.shape)

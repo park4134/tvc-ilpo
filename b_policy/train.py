@@ -2,10 +2,10 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from model import State_Embedding, Policy_Network
-from utils import get_loss_min, get_loss_exp, get_metric, gpu_limit
+from model import PolicyNetwork, SeqPolicyNetwork
+from utils import get_loss_min, get_loss_exp, get_metric, gpu_limit, get_relative_metric
 from tensorflow.keras.optimizers import Adam
-from DataLoader import Data_Loader
+from DataLoader import DataLoader, SeqDataLoader
 from copy import deepcopy
 from glob import glob
 from tqdm import tqdm
@@ -17,6 +17,7 @@ import yaml
 class trainer():
     def __init__(self):
         self.config_dic = self.get_config()
+        self.seq = self.config_dic['seq']
         self.n_latent_action = self.config_dic['n_latent_action']
         self.units = self.config_dic['units']
         self.layer_num = self.config_dic['layer_num']
@@ -30,32 +31,48 @@ class trainer():
         self.delta_t = self.config_dic['dt']
         self.n_state = len(self.config_dic['target_cols'])
         self.target_cols = self.config_dic['target_cols']
-        self.is_normalize = self.config_dic['is_normalize']
-        self.is_standardize = self.config_dic['is_standardize']
 
         self.get_save_path()
 
-        self.dataloader = Data_Loader(
-            sim=self.sim,
-            num=self.num,
-            target_cols=self.target_cols,
-            delta_t=self.delta_t,
-            batch_size=self.batch_size,
-            is_normalize=self.is_normalize,
-            is_standardize=self.is_standardize
-        )
+        if self.seq == 1:
+            self.dataloader = DataLoader(
+                sim=self.sim,
+                num=self.num,
+                target_cols=self.target_cols,
+                delta_t=self.delta_t,
+                batch_size=self.batch_size,
+            )
 
-        self.model = Policy_Network(
-            n_state=self.n_state,
-            n_latent_action=self.n_latent_action,
-            units = self.units,
-            layer_num=self.layer_num,
-            batch_size=self.batch_size,
-            lrelu=self.lrelu,
-            is_normalize=self.is_normalize,
-            is_standardize=self.is_standardize
-        )
-        self.model.build_graph()
+            self.model = PolicyNetwork(
+                n_state=self.n_state,
+                n_latent_action=self.n_latent_action,
+                units = self.units,
+                layer_num=self.layer_num,
+                batch_size=self.batch_size,
+                lrelu=self.lrelu,
+            )
+            self.model.build_graph()
+        
+        else:
+            self.dataloader = SeqDataLoader(
+                sim=self.sim,
+                num=self.num,
+                target_cols=self.target_cols,
+                seq = self.seq,
+                delta_t=self.delta_t,
+                batch_size=self.batch_size,
+            )
+
+            self.model = SeqPolicyNetwork(
+                n_state=self.n_state,
+                n_latent_action=self.n_latent_action,
+                seq = self.seq,
+                units = self.units,
+                layer_num=self.layer_num,
+                batch_size=self.batch_size,
+                lrelu=self.lrelu,
+            )
+            self.model.build_graph()
 
         self.train_loss_min = []
         self.train_loss_exp = []
@@ -85,7 +102,7 @@ class trainer():
         return deepcopy(config_dic)
 
     def get_save_path(self):
-        save_dir = os.path.join(os.getcwd(), 'runs', 'policy', self.sim)
+        save_dir = os.path.join(os.getcwd(), 'runs', 'policy', self.sim, 'train')
         number = len(glob(os.path.join(save_dir, 'model*')))
         file_name = f'model_{number}'
         self.save_path = os.path.join(save_dir, file_name)
@@ -102,14 +119,8 @@ class trainer():
         self.config_dic['epochs'] = self.epochs
         self.config_dic['max_patience'] = self.max_patience
         self.config_dic['learning_rate'] = self.learning_rate
-
-        if self.is_normalize:
-            self.config_dic['min_values'] = list([float(x) for x in self.dataloader.min])
-            self.config_dic['max_values'] = list([float(x) for x in self.dataloader.max])
-
-        elif self.is_standardize:
-            self.config_dic['mean_values'] = list([float(x) for x in self.dataloader.mean])
-            self.config_dic['std_values'] = list([float(x) for x in self.dataloader.std])
+        self.config_dic['epoch'] = self.epoch
+        self.config_dic['min_val_metric'] = float(self.min_val_metric)
 
         with open(os.path.join(self.save_path, 'config.yaml'), 'w') as f:
             yaml.dump(self.config_dic, f)
@@ -166,7 +177,7 @@ class trainer():
                     loss_min = get_loss_min(delta_s, delta_s_hat)
                     loss_exp = get_loss_exp(delta_s, z_p, delta_s_hat)
                     loss_total = loss_min + loss_exp
-                metric = get_metric(delta_s, z_p, delta_s_hat)
+                metric, relative_metric = get_metric(delta_s, z_p, delta_s_hat)
 
                 self.train_loss_min.append(loss_min)
                 self.train_loss_exp.append(loss_exp)
@@ -178,7 +189,7 @@ class trainer():
                 grads = tape.gradient(loss_total, self.model.trainable_variables)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
             print(f"Epoch : {epoch}")
-            print(f"Train metric : {np.mean(train_metric_epoch):.3f}")
+            print(f"Train metric : {np.mean(train_metric_epoch):.5f}")
 
             del s, delta_s, z_p, delta_s_hat, loss_min, loss_exp, loss_total, metric, grads
 
@@ -193,7 +204,7 @@ class trainer():
                 loss_min = get_loss_min(delta_s, delta_s_hat)
                 loss_exp = get_loss_exp(delta_s, z_p, delta_s_hat)
                 loss_total = loss_min + loss_exp
-                metric = get_metric(delta_s, z_p, delta_s_hat)
+                metric, relative_metric = get_metric(delta_s, z_p, delta_s_hat)
 
                 self.val_loss_min.append(loss_min)
                 self.val_loss_exp.append(loss_exp)
@@ -203,19 +214,25 @@ class trainer():
                 val_metric_epoch.append(metric)
 
             avg_metric = np.mean(val_metric_epoch)
-            print(f"Validation metric : {avg_metric:.3f}")
+            print(f"Validation metric : {avg_metric:.5f}")
 
-            if avg_metric <= self.val_metric_epoch_total[-1]:
-                print(f"Update weights : Current >> {avg_metric:.3f}, Previous >> {self.val_metric_epoch_total[-1]:.3f}")
+            if avg_metric <= np.min(self.val_metric_epoch_total):
+                print(f"Update weights : Current >> {avg_metric:.5f}, Previous >> {self.val_metric_epoch_total[-1]:.5f}, Minimum >> {np.min(self.val_metric_epoch_total):.5f}")
+                print(f"Target columns relative metric :", end=' ')
+                print(relative_metric)
                 self.model.save_weights(os.path.join(self.save_path, 'best_weights'))
                 self.model.save(os.path.join(self.save_path, 'best_model'))
                 patience = 0
 
             else:
                 patience += 1
-                print(f"Maintain weights : Current >> {avg_metric:.3f}, Previous >> {self.val_metric_epoch_total[-1]:.3f}")
+                print(f"Maintain weights : Current >> {avg_metric:.5f}, Previous >> {self.val_metric_epoch_total[-1]:.5f}, Minimum >> {np.min(self.val_metric_epoch_total):.5f}")
+                print(f"Target columns relative metric :", end=' ')
+                print(relative_metric)
                 if patience >= self.max_patience:
                     print(f"Train finished : minimun of val_metric : {np.min(self.val_metric_epoch_total)}")
+                    self.epoch = epoch
+                    self.min_val_metric = np.min(self.val_metric_epoch_total)
                     self.save_train_results()
                     break
 

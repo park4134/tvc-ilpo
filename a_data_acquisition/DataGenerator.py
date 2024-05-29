@@ -2,35 +2,34 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from Sim import Freefall
+from stable_baselines3 import PPO
+from stable_baselines3.common.evaluation import evaluate_policy
 from glob import glob
 from tqdm import tqdm
 import numpy as np
+import gym
 import json
 import os
-import time
 
-class Data_Generator():
-    def __init__(self, mass, cycle_time, run_time, action_seq, s_init = 0):
+class DataGenerator():
+    def __init__(self, env_name, model_dir, observe_episodes=10000):
         '''mass : kg, cycle_time & run_time : sec, action_seq : list of newtons, s_init : meter'''
-        self.cycle_time = cycle_time
-        self.action_seq = action_seq
-        self.run_time = run_time
+        self.env_name = env_name
+        self.model_dir = model_dir
+        self.observe_episodes = observe_episodes
         self.get_save_path()
 
-        self.time = []
         self.state_list = []
-
-        self.Sim = Freefall(mass=mass, s_init=s_init, cycle_time=self.cycle_time)
+        self.action_list = []
 
     def get_save_path(self):
-        file_name = 'num'
-        save_path = os.path.join(os.getcwd(), 'data', 'freefall')
+        file_name = 'expert_data'
+        save_path = os.path.join(os.getcwd(), 'data', 'row', self.env_name)
         if not os.path.isdir(save_path):
             os.makedirs(save_path)
 
         num = len(glob(os.path.join(save_path, f'{file_name}*')))
-        file_name = f'num_{num}'
+        file_name = f'{file_name}_{num}'
 
         if not os.path.isdir(os.path.join(save_path, file_name)):
             os.makedirs(os.path.join(save_path, file_name))
@@ -43,47 +42,58 @@ class Data_Generator():
             return float(obj)
         elif isinstance(obj, np.floating):
             return float(obj)
-        elif isinstance(obj, np.float64):
+        elif isinstance(obj, np.float32):
             return float(obj)
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
 
     def save_result(self):
-        self.state_list = np.array(self.state_list, dtype=np.float64)
-        self.action_seq = np.array(self.action_seq, dtype=np.float64)
+        self.state_list = np.array(self.state_list, dtype=np.float32)
 
-        dict_result = {
-                        'time' : self.time,
-                        's' : self.state_list[:,0],
-                        'v' : self.state_list[:,1],
-                        'action' : self.action_seq
-                        }
+        dict_state = {'pos_x' : list(self.state_list[:,0]),
+                    'pos_y' : list(self.state_list[:, 1]),
+                    'v_x' : list(self.state_list[:, 2]),
+                    'v_y' : list(self.state_list[:, 3]),
+                    'angle' : list(self.state_list[:, 4]),
+                    'w' : list(self.state_list[:, 5]),
+                    'is_grounded_left' : list(self.state_list[:, 6]),
+                    'is_grounded_right' : list(self.state_list[:, 7]),
+                    'action' : self.action_list
+                    }
+        num = len(glob(os.path.join(self.save_path, self.file_name, 'senario*')))
         
-        with open(os.path.join(self.save_path, self.file_name, 'sim_result.json'), 'w') as f:
-            json.dump(dict_result, f, default=self.serialize)
+        with open(os.path.join(self.save_path, self.file_name, f'senario_{num}.json'), 'w') as f:
+            json.dump(dict_state, f, default=self.serialize)
+        
+        self.state_list = []
+        self.action_list = []
 
     def generate(self):
-        iteration = int(self.run_time / self.cycle_time)
+        env = gym.make(self.env_name, render_mode="rgb_array")
+        model_path = os.path.join(os.getcwd(), "runs/expert/", self.env_name, self.model_dir)
+        model = PPO.load(model_path, env=env)
+        dones = False
 
-        '''Initial state'''
-        self.state_list.append([self.Sim.s, self.Sim.v])
-        self.time.append(0.0)
-        for i in tqdm(range(iteration)):
-            state = self.Sim.get_data(action = self.action_seq[i])
-            self.time.append(self.Sim.t)
-            self.state_list.append(state)
-        
-        '''Equalize length'''
-        self.action_seq.append(0)
-        self.save_result()
+        vec_env = model.get_env()
+        obs = vec_env.reset()
+        c = 0
+
+        for e in tqdm(range(self.observe_episodes)):
+            while not dones:
+                action, _states = model.predict(obs, deterministic=True)  # 상태 저장 옵션 추가
+                obs, rewards, dones, info = vec_env.step(action)
+                self.state_list.append(obs[0])
+                self.action_list.append(action)
+                vec_env.render()
+            self.save_result()
+            obs = vec_env.reset()
+            dones = False
+        vec_env.close()
 
 if __name__ == "__main__":
-    data_gen = Data_Generator(
-                            mass=1.0, 
-                            cycle_time=0.01,
-                            run_time=1000,
-                            action_seq=[0.0]*100000,
-                            s_init=10000.0
+    data_gen = DataGenerator(
+                            env_name = 'LunarLander-v2',
+                            model_dir = 'PPO_lunar_217',
+                            observe_episodes = 100
                             )
-    
     data_gen.generate()
