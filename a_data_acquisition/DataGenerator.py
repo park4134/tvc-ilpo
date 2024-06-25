@@ -76,6 +76,7 @@ class DataGenerator():
 
         vec_env = model.get_env()
         obs = vec_env.reset()
+        self.state_list.append(obs[0])
         c = 0
 
         for e in tqdm(range(self.observe_episodes)):
@@ -94,6 +95,6 @@ if __name__ == "__main__":
     data_gen = DataGenerator(
                             env_name = 'LunarLander-v2',
                             model_dir = 'PPO_lunar_217',
-                            observe_episodes = 100
+                            observe_episodes = 1000
                             )
     data_gen.generate()
