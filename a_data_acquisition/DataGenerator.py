@@ -49,17 +49,24 @@ class DataGenerator():
 
     def save_result(self):
         self.state_list = np.array(self.state_list, dtype=np.float32)
-
-        dict_state = {'pos_x' : list(self.state_list[:,0]),
-                    'pos_y' : list(self.state_list[:, 1]),
-                    'v_x' : list(self.state_list[:, 2]),
-                    'v_y' : list(self.state_list[:, 3]),
-                    'angle' : list(self.state_list[:, 4]),
-                    'w' : list(self.state_list[:, 5]),
-                    'is_grounded_left' : list(self.state_list[:, 6]),
-                    'is_grounded_right' : list(self.state_list[:, 7]),
-                    'action' : self.action_list
-                    }
+        if self.env_name == 'LunarLander-v2':
+            dict_state = {'pos_x' : list(self.state_list[:, 0]),
+                        'pos_y' : list(self.state_list[:, 1]),
+                        'v_x' : list(self.state_list[:, 2]),
+                        'v_y' : list(self.state_list[:, 3]),
+                        'angle' : list(self.state_list[:, 4]),
+                        'w' : list(self.state_list[:, 5]),
+                        'is_grounded_left' : list(self.state_list[:, 6]),
+                        'is_grounded_right' : list(self.state_list[:, 7]),
+                        'action' : self.action_list
+                        }
+            
+        elif self.env_name == 'MountainCar-v0':
+            dict_state = {'pos' : list(self.state_list[:, 0]),
+                        'v' : list(self.state_list[:, 1]),
+                        'action' : self.action_list
+                        }
+            
         num = len(glob(os.path.join(self.save_path, self.file_name, 'senario*')))
         
         with open(os.path.join(self.save_path, self.file_name, f'senario_{num}.json'), 'w') as f:
@@ -93,8 +100,14 @@ class DataGenerator():
 
 if __name__ == "__main__":
     data_gen = DataGenerator(
+<<<<<<< HEAD
                             env_name = 'LunarLander-v2',
                             model_dir = 'PPO_lunar_217',
                             observe_episodes = 1000
+=======
+                            env_name = 'MountainCar-v0',
+                            model_dir = 'PPO_MountainCar-v0_1',
+                            observe_episodes = 3000
+>>>>>>> f32ece96f8140729ffb12cb3ea329657639fc38f
                             )
     data_gen.generate()
