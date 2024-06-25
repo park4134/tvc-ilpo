@@ -4,27 +4,32 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from b_policy.model import Policy_Network
 from model import Action_Remap_Network
+from utils import get_loss_map
 from tensorflow.keras.optimizers import Adam
-from DataLoader import Data_Loader
+from collections import deque
 from copy import deepcopy
 from glob import glob
 from tqdm import tqdm
+
+
 import tensorflow as tf
 import gymnasium as gym
 import numpy as np
+import random
 import json
 import yaml
 
 class trainer():
     def __init__(self):
         self.config_dic, self.config_dic_p, self.config_path_p = self.get_config()
-        self.n_action = len(self.action)
         self.units = self.config_dic['units']
         self.layer_num = self.config_dic['layer_num']
         self.batch_size = self.config_dic['batch_size']
         self.learning_rate = self.config_dic['learning_rate']
         self.epochs = self.config_dic['epochs']
-        self.e_init = self.config_dic['e_init']
+        self.buffer = deque(maxlen=self.config_dic['buffer_size'])
+        self.min_buffer_size = self.config_dic['min_buffer_size']
+        self.e = self.config_dic['e_init']
         self.e_decay_factor = self.config_dic['e_decay_factor']
         self.e_min = self.config_dic['e_min']
         # self.max_patience = self.config_dic['max_patience']
@@ -46,12 +51,10 @@ class trainer():
         # if self.is_standardize
 
         self.train_loss = []
-        self.train_metric = []
-        self.train_epochs = []
+        self.train_score = []
 
-        self.val_loss = []
-        self.val_metric = []
-        self.val_epochs = []
+        self.val_terminated = []
+        self.val_score = []
     
     def get_config(self):
         import argparse
@@ -116,14 +119,12 @@ class trainer():
 
         dict_train = {
             'loss' : self.train_loss,
-            'metric' : self.train_metric,
-            'epochs' : self.train_epochs
+            'score' : self.train_score
         }
 
         dict_val = {
-            'loss' : self.val_loss,
-            'metric' : self.val_metric,
-            'epochs' : self.val_epochs
+            'terminated' : self.val_terminated,
+            'score' : self.val_score
         }
 
         with open(os.path.join(self.save_path, 'train_results.json'), 'w') as f:
@@ -133,19 +134,104 @@ class trainer():
             json.dump(dict_val, f, default=self.serialize)
     
     def e_greedy_action(self, state, max_z):
+        if np.random.uniform(0, 1) <= self.e:
+            action = np.random.choice(np.arange(self.n_action))
+            action_mapped = tf.one_hot([action], self.n_action)
+        else:
+            action_mapped = self.model_arm((state, max_z))
+            action = tf.argmax(tf.reshape(action, (self.n_action, )), axis=-1)
+        
+        return action, action_mapped
 
+    def update_model(self):
+        batch = random.sample(self.buffer, self.batch_size)
+
+        state, action_mapped, delta_s_hat, next_state = zip(*batch)
+
+        delta_s = tf.subtract(next_state, state)
+        delta_s = tf.tile(delta_s, [1, self.n_latent_actions])
+        delta_s = tf.reshape(delta_s, (self.batch_size, self.n_latent_actions, self.n_state))
+
+        dist = tf.norm(tf.subtract(delta_s_hat, delta_s), axis=-1) # (batch, n_latent_action)
+        min_z = tf.one_hot(tf.argmin(dist, axis=-1), self.n_latent_action) # (batch, n_latent_action)
+
+        with tf.GradientTape() as tape:
+            action_label = self.model_arm((state, min_z))
+
+            loss = get_loss_map(action_label, action_mapped)
+        self.train_loss.append(loss)
+        
+        grads = tape.gradient(loss, self.model_arm.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.model_arm.trainable_variables))
+        print(f'Train Loss >> {tf.reduce_mean(loss).numpy():.4f}')
     
     def train(self):
         self.optimizer = Adam(learning_rate=self.learning_rate)
         self.env = gym.make("LunarLander-v2", render_mode="rgb_array")
+        self.n_action = self.env.action_space.n
 
-        for e in range(self.epochs):
+        for n in range(self.epochs):
             done = False
             state = self.env.reset()[0,:6]
+            score = 0
+
+            self.e = max(self.e_min, self.e * (self.e_decay_factor ** n))
+
+            '''Train'''
+            while not done:
+                if self.is_normalize:
+                    state = tf.divide(tf.subtract(state, self.min), tf.subtract(self.max, self.min))
+
+                z_p, delta_s_hat = self.model_lpn(tf.expand_dims(state, axis=0)) # z_p : (batch, n_latent_action) / delta_s_hat : (batch, n_latent_action, n_state)
+                max_z = tf.one_hot(tf.argmax(z_p, axis=-1), self.n_latent_actions)
+
+                action, action_mapped = self.e_greedy_action(state, max_z)
+
+                next_state, reward, terminated, truncated, info = self.env.step(action)
+                done = terminated or truncated
+                next_state = next_state[:6]
+                if self.is_normalize:
+                    next_state = tf.divide(tf.subtract(next_state, self.min), tf.subtract(self.max, self.min))
+                
+                if not done:
+                    self.buffer.append((state, action_mapped, delta_s_hat, next_state))
+
+                state = next_state
+                score += reward
+
+                if len(self.buffer) >= self.min_buffer_size:
+                    self.update_model()
+            
+            self.train_score.append(score)
+            print(f'Train Score >> {score}')
+
+            '''Validation'''
+            done = False
+            state = self.env.reset()[0,:6]
+            val_score = 0
 
             while not done:
                 if self.is_normalize:
-                    state = np.divide(np.subtract(state, self.min), np.subtract(self.max, self.min))
-
-                z_p, delta_s = self.model_lpn(state)
+                    state = tf.divide(tf.subtract(state, self.min), tf.subtract(self.max, self.min))
                 
+                z_p, delta_s_hat = self.model_lpn(tf.expand_dims(state, axis=0)) # z_p : (batch, n_latent_action) / delta_s_hat : (batch, n_latent_action, n_state)
+                max_z = tf.one_hot(tf.argmax(z_p, axis=-1), self.n_latent_actions)
+
+                action_mapped = self.model_arm((state, max_z))
+                action = tf.argmax(tf.reshape(action, (self.n_action, )), axis=-1)
+
+                next_state, reward, terminated, truncated, info = self.env.step(action)
+                done = terminated or truncated
+                next_state = next_state[:6]
+                if self.is_normalize:
+                    next_state = tf.divide(tf.subtract(next_state, self.min), tf.subtract(self.max, self.min))
+                
+                state = next_state
+                val_score += reward
+            
+            self.val_score.append(val_score)
+            print(f'Validation Score >> {val_score}')
+            if terminated:
+                self.val_terminated.append(1)
+            else:
+                self.val_terminated.append(0)

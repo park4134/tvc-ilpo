@@ -63,6 +63,8 @@ class Action_Remap_Network(Model):
         state = inputs[0]
         min_action = inputs[1]
 
+        self.batch_size = state.shape[0]
+
         # if self.is_normalize:
         #     norm_x = tf.math.divide(tf.math.subtract(state, self.input_min_values), tf.math.subtract(self.input_max_values, self.input_min_values))
         # elif self.is_standardize:

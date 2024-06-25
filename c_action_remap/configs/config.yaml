@@ -4,6 +4,8 @@ layer_num: 1
 batch_size: 128
 learning_rate: 1e-5
 epochs: 100
+buffer_size: 10000
+min_buffer_size: 1000
 e_init: 0.9
 e_decay_factor: 0.999
 e_min: 0.05
