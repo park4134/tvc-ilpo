@@ -4,29 +4,25 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from tensorflow.keras.layers import Dense, LeakyReLU, Softmax
 from tensorflow.keras import Model, Input
-from b_policy.model import State_Embedding
+from b_policy.model import StateEmbedding
 import tensorflow as tf
 import yaml
 
-class Action_Remap_Network(Model):
-    def __init__(self, n_action, units, layer_num, batch_size, n_state, n_latent_action, units_p, layer_num_p,
-                lrelu=0.2, is_normalize=False, is_standardize=False):
+class ActionRemapNetwork(Model):
+    def __init__(self, n_state, n_latent_action, n_action, units, units_p, layer_num, layer_num_p, batch_size, lrelu=0.2):
         super().__init__()
-        self.n_action = n_action
-        self.units = units
-        self.layer_num = layer_num
-        self.batch_size = batch_size
-
         self.n_state = n_state
         self.n_latent_action = n_latent_action
+        self.n_action = n_action
+        self.units = units
         self.units_p = units_p
+        self.layer_num = layer_num
         self.layer_num_p = layer_num_p
+        self.batch_size = batch_size
         self.lrelu = lrelu
-        self.is_normalize = is_normalize,
-        self.is_standardize = is_standardize
 
         '''State Embedding'''
-        self.state_embedding = State_Embedding(
+        self.state_embedding = StateEmbedding(
             units=self.units_p,
             layer_num=self.layer_num_p,
             lrelu = self.lrelu
@@ -65,13 +61,6 @@ class Action_Remap_Network(Model):
 
         self.batch_size = state.shape[0]
 
-        # if self.is_normalize:
-        #     norm_x = tf.math.divide(tf.math.subtract(state, self.input_min_values), tf.math.subtract(self.input_max_values, self.input_min_values))
-        # elif self.is_standardize:
-        #     norm_x = tf.math.divide(tf.math.subtract(state, self.input_mean_values), self.input_std_values)
-        # else:
-        #     norm_x = state
-
         s_e = self.state_embedding(state)
         s_e = self.state_embedding_lrelu(s_e)
 
@@ -90,17 +79,15 @@ class Action_Remap_Network(Model):
         return remapped_action
     
 if __name__=="__main__":
-    model_arm = Action_Remap_Network(
-        n_action=5,
-        units=128,
-        layer_num=2,
-        batch_size=64,
+    model_arm = ActionRemapNetwork(
         n_state=3,
         n_latent_action=3,
+        n_action=5,
+        units=128,
         units_p=64,
+        layer_num=2,
         layer_num_p=1,
+        batch_size=64,
         lrelu=0.2,
-        is_normalize=True,
-        is_standardize=False
         )
     model_arm.build_graph()

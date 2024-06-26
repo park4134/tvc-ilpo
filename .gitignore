@@ -1,6 +1,10 @@
 #pycache
 
 /__pycache__
+/a_data_acquisition/__pycache__
+/b_policy/__pycache__
+/c_action_remap/__pycache__
+/d_data_analysis/__pycache__
 
 # data directory
 /data

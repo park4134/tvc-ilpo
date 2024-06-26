@@ -27,7 +27,8 @@ class trainer():
         self.max_patience = self.config_dic['max_patience']
         self.learning_rate = self.config_dic['learning_rate']
         self.sim = self.config_dic['sim']
-        self.num = self.config_dic['num']
+        self.expert_num = self.config_dic['expert_num']
+        self.data_num = self.config_dic['data_num']
         self.delta_t = self.config_dic['dt']
         self.n_state = len(self.config_dic['target_cols'])
         self.target_cols = self.config_dic['target_cols']
@@ -37,7 +38,8 @@ class trainer():
         if self.seq == 1:
             self.dataloader = DataLoader(
                 sim=self.sim,
-                num=self.num,
+                expert_num=self.expert_num,
+                data_num=self.data_num,
                 target_cols=self.target_cols,
                 delta_t=self.delta_t,
                 batch_size=self.batch_size,
@@ -56,7 +58,8 @@ class trainer():
         else:
             self.dataloader = SeqDataLoader(
                 sim=self.sim,
-                num=self.num,
+                expert_num=self.expert_num,
+                data_num=self.data_num,
                 target_cols=self.target_cols,
                 seq = self.seq,
                 delta_t=self.delta_t,

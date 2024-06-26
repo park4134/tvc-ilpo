@@ -206,10 +206,10 @@ class ClusterPreprocessor(Preprocessor):
                 self.a = np.concatenate((self.a, a_), axis=0)
         
         if self.is_normalize:
-            # self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.])
-            # self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.])
-            self.min = np.min(self.s, axis=0)
-            self.max = np.max(self.s, axis=0)
+            self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.])
+            self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.])
+            # self.min = np.min(self.s, axis=0)
+            # self.max = np.max(self.s, axis=0)
 
             self.s = np.divide(np.subtract(self.s, self.min), np.subtract(self.max, self.min))
             self.s_next = np.divide(np.subtract(self.s_next, self.min), np.subtract(self.max, self.min))
@@ -243,13 +243,13 @@ class ClusterPreprocessor(Preprocessor):
             np.save(os.path.join(self.save_path, f'std_{self.delta_t}.npy'), self.std)
 
 if __name__ == "__main__":
-    # preprocessor = Preprocessor(sim = 'LunarLander-v2',
-    #                             num = 1,
-    #                             cycle_time = 0.02,
-    #                             delta_t = 0.02,
-    #                             target_cols = ['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w'],
-    #                             is_normalize = True
-    #                             )
+    preprocessor = Preprocessor(sim = 'LunarLander-v2',
+                                num = 0,
+                                cycle_time = 0.02,
+                                delta_t = 0.02,
+                                target_cols = ['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w'],
+                                is_normalize = True
+                                )
     
     # preprocessor = SeqPreprocessor(sim = 'LunarLander-v2',
     #                             num = 1,
@@ -260,12 +260,12 @@ if __name__ == "__main__":
     #                             is_normalize = True
     #                             )
 
-    preprocessor = ClusterPreprocessor(sim = 'LunarLander-v2',
-                                num = 2,
-                                cycle_time = 0.02,
-                                delta_t = 0.02,
-                                target_cols = ['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w']
-                                )
+    # preprocessor = ClusterPreprocessor(sim = 'LunarLander-v2',
+    #                             num = 0,
+    #                             cycle_time = 0.02,
+    #                             delta_t = 0.02,
+    #                             target_cols = ['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w']
+    #                             )
     
     preprocessor.get_data()
     preprocessor.save_data()

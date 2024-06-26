@@ -9,17 +9,18 @@ import math
 import os
 
 class DataLoader():
-    def __init__(self, sim, num, target_cols, delta_t, batch_size, shuffle=True):
+    def __init__(self, sim, expert_num, data_num, target_cols, delta_t, batch_size, shuffle=True):
         self.sim = sim
-        self.num = num
+        self.expert_num = expert_num
+        self.data_num = data_num
         self.target_cols = target_cols
         self.delta_t = delta_t
         self.batch_size = batch_size
         self.shuffle = shuffle
 
     def get_data(self):
-        self.s_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.num}', f's_{self.delta_t}.npy')
-        self.s_next_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.num}', f's_next_{self.delta_t}.npy')
+        self.s_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.expert_num}', 'policy', f'data_{self.data_num}',f's_{self.delta_t}.npy')
+        self.s_next_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.expert_num}', 'policy', f'data_{self.data_num}',f's_next_{self.delta_t}.npy')
         self.s = np.load(self.s_path)
         self.s_next = np.load(self.s_next_path)
 
@@ -73,10 +74,12 @@ class DataLoader():
             np.random.shuffle(self.indices_val)
 
 class SeqDataLoader(DataLoader):
-    def __init__(self, sim, num, target_cols, seq, delta_t, batch_size, shuffle=True):
+    def __init__(self, sim, expert_num, data_num, target_cols, seq, delta_t, batch_size, shuffle=True):
         super().__init__(
             sim = sim,
-            num = num,
+            expert_num = expert_num,
+            data_num = data_num,
+            shuffle = shuffle,
             target_cols = target_cols,
             delta_t = delta_t,
             batch_size = batch_size
@@ -84,8 +87,8 @@ class SeqDataLoader(DataLoader):
         self.seq = seq
     
     def get_data(self):
-        self.s_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.num}', f'seq{self.seq}_s_{self.delta_t}.npy')
-        self.s_next_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.num}', f'seq{self.seq}_s_next_{self.delta_t}.npy')
+        self.s_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.expert_num}', 'policy', f'data_{self.data_num}', f'seq{self.seq}_s_{self.delta_t}.npy')
+        self.s_next_path = os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.expert_num}', 'policy', f'data_{self.data_num}', f'seq{self.seq}_s_next_{self.delta_t}.npy')
         self.s = np.load(self.s_path)
         self.s_next = np.load(self.s_next_path)
 

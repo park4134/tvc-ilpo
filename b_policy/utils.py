@@ -11,7 +11,7 @@ def get_loss_min(delta_s, delta_s_hat):
 
 def get_loss_exp(delta_s, z_p, delta_s_hat):
     expect_delta_s = tf.multiply(delta_s_hat, tf.expand_dims(z_p, axis=-1))
-    expect_delta_s = tf.reduce_mean(expect_delta_s, axis=1)
+    expect_delta_s = tf.reduce_sum(expect_delta_s, axis=1)
 
     loss_exp = tf.subtract(delta_s, expect_delta_s)
     loss_exp = tf.reduce_mean(tf.norm(loss_exp, axis=-1))
