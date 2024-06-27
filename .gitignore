@@ -17,7 +17,7 @@
 
 # config directory
 /b_policy/configs
-/c_action_rempa/configs
+/c_action_remap/configs
 
 # Dummy ipynb file
 Analysis.ipynb

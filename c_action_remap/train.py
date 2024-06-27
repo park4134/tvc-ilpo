@@ -20,13 +20,18 @@ import yaml
 class trainer():
     def __init__(self):
         self.get_config()
+        self.get_save_path()
         self.env = gym.make(self.sim, render_mode="rgb_array")
         self.n_action = self.env.action_space.n
         self.get_models()
 
         if self.is_normalize:
-            self.min = tf.constant([-1.5, -1.5, -5., -5., -3.14, -5.], dtype=tf.float32)
-            self.max = tf.constant([1.5, 1.5, 5., 5., 3.14, 5.], dtype=tf.float32)
+            self.min = np.load(os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.expert_num}', 'policy', f'data_{self.data_num}', f'min_{self.delta_t}.npy'))
+            self.max = np.load(os.path.join(os.getcwd(), 'data', 'preprocessed', self.sim, f'expert_data_{self.expert_num}', 'policy', f'data_{self.data_num}', f'max_{self.delta_t}.npy'))
+            self.min = tf.convert_to_tensor(self.min, dtype=tf.float32)
+            self.max = tf.convert_to_tensor(self.max, dtype=tf.float32)
+            # self.min = tf.constant([-1.5, -1.5, -5., -5., -3.14, -5.], dtype=tf.float32)
+            # self.max = tf.constant([1.5, 1.5, 5., 5., 3.14, 5.], dtype=tf.float32)
         
         # if self.is_standardize
 
@@ -69,6 +74,9 @@ class trainer():
         self.units_p = self.config_dic_p['units']
         self.layer_num_p = self.config_dic_p['layer_num']
         self.lrelu = self.config_dic_p['lrelu']
+        self.expert_num = self.config_dic_p['expert_num']
+        self.data_num = self.config_dic_p['data_num']
+        self.delta_t = self.config_dic_p['dt']
         self.is_normalize = self.config_dic_p['is_normalize']
         self.is_standardize = self.config_dic_p['is_standardize']
     
@@ -112,6 +120,8 @@ class trainer():
     
     def save_train_results(self):
         self.save_config()
+
+        self.model_arm.save_weights(os.path.join(self.save_path, 'best_weights'))
 
         dict_train = {
             'loss' : self.train_loss,
@@ -159,7 +169,7 @@ class trainer():
         with tf.GradientTape() as tape:
             action_label = self.model_arm((state, min_z))
 
-            loss = get_loss_map(action_label, action_mapped)
+            loss = get_loss_map(action_mapped, action_label)
         
         grads = tape.gradient(loss, self.model_arm.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.model_arm.trainable_variables))
@@ -175,6 +185,7 @@ class trainer():
             score = 0
 
             self.e = max(self.e_min, self.e * self.e_decay_factor)
+            # self.e = 0.8
             loss_episode = []
 
             '''Train'''

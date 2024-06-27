@@ -47,10 +47,10 @@ class Preprocessor():
         self.indices = np.arange(len(self.s))
 
         if self.is_normalize:
-            # self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.])
-            # self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.])
-            self.min = np.min(self.s, axis=0)
-            self.max = np.max(self.s, axis=0)
+            self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.])
+            self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.])
+            # self.min = np.min(self.s, axis=0)
+            # self.max = np.max(self.s, axis=0)
 
             self.s = np.divide(np.subtract(self.s, self.min), np.subtract(self.max, self.min))
             self.s_next = np.divide(np.subtract(self.s_next, self.min), np.subtract(self.max, self.min))
@@ -206,8 +206,8 @@ class ClusterPreprocessor(Preprocessor):
                 self.a = np.concatenate((self.a, a_), axis=0)
         
         if self.is_normalize:
-            self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.])
-            self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.])
+            self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.], dtype = np.float32)
+            self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.], dtype = np.float32)
             # self.min = np.min(self.s, axis=0)
             # self.max = np.max(self.s, axis=0)
 

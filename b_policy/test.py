@@ -26,6 +26,8 @@ class tester():
         self.lrelu = self.config_dic['lrelu']
         self.seq = self.config_dic['seq']
         self.sim = self.config_dic['sim']
+        self.expert_num = self.config_dic['expert_num']
+        self.data_num = self.config_dic['data_num']
         self.delta_t = self.config_dic['dt']
         self.target_cols = self.config_dic['target_cols']
 
@@ -34,7 +36,8 @@ class tester():
         if self.seq == 1:
             self.dataloader = DataLoader(
                 sim=self.sim,
-                num=1,
+                expert_num=self.expert_num,
+                data_num=self.data_num,
                 target_cols=self.target_cols,
                 delta_t=self.delta_t,
                 batch_size=self.batch_size,
@@ -54,7 +57,8 @@ class tester():
         else:
             self.dataloader = SeqDataLoader(
                 sim=self.sim,
-                num=1,
+                expert_num=self.expert_num,
+                data_num=self.data_num,
                 target_cols=self.target_cols,
                 seq = self.seq,
                 delta_t=self.delta_t,
@@ -112,11 +116,11 @@ class tester():
             return obj.tolist()
 
     def save_test_results(self):
-        print(self.test_metric.shape)
-        print(self.test_z.shape)
-        print(self.test_s.shape)
-        print(self.test_s_next.shape)
-        print(self.test_relative_metric.shape)
+        # print(self.test_metric.shape)
+        # print(self.test_z.shape)
+        # print(self.test_s.shape)
+        # print(self.test_s_next.shape)
+        # print(self.test_relative_metric.shape)
         df_test = pd.DataFrame({
             f'test_s_{self.target_cols[0]}' : self.test_s[:,0],
             f'test_s_{self.target_cols[1]}' : self.test_s[:,1],
@@ -184,7 +188,7 @@ class tester():
         self.save_test_results()
 
         print(f"Test metric : {np.mean(self.test_metric):.5f}")
-        print(f"Test relative metric : {self.test_relative_metric}")
+        print(f"Test relative metric : {np.mean(self.test_relative_metric, axis=0):.5f}")
 
 if __name__=="__main__":
     import absl.logging

@@ -1,12 +1,15 @@
 import tensorflow as tf
 import numpy as np
 
-def get_loss_map(action_label, action_mapped):
+def get_loss_map(action_mapped, action_label):
     
-    epsilon = tf.keras.backend.epsilon()
-    action_mapped = tf.clip_by_value(action_mapped, epsilon, 1)
+    cross_entropy = tf.keras.losses.categorical_crossentropy(action_mapped, action_label)
+    # epsilon = tf.keras.backend.epsilon()
+    # action_label = tf.clip_by_value(action_label, epsilon, 1)
 
-    cross_entropy = -tf.reduce_sum(action_label * tf.math.log(action_mapped), axis=-1)
+    # cross_entropy = -tf.reduce_sum(action_mapped * tf.math.log(action_label), axis=-1)
+
+    cross_entropy = tf.reduce_mean(cross_entropy)
 
     return cross_entropy
 
