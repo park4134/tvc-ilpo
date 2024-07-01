@@ -118,6 +118,14 @@ class trainer():
         with open(os.path.join(self.save_path, 'config.yaml'), 'w') as f:
             yaml.dump(self.config_dic, f)
     
+    def serialize(self, obj):
+        if isinstance(obj, np.float32):
+            return float(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        
     def save_train_results(self):
         self.save_config()
 
@@ -181,11 +189,14 @@ class trainer():
 
         for n in range(self.epochs):
             done = False
-            state = self.env.reset()[0][:6]
+            if self.sim == 'LunarLander-v2':
+                state = self.env.reset()[0][:6]
+            elif self.sim == 'MountainCar-v0':
+                state = self.env.reset()[0]
             score = 0
 
-            self.e = max(self.e_min, self.e * self.e_decay_factor)
-            # self.e = 0.8
+            # self.e = max(self.e_min, self.e * self.e_decay_factor)
+            self.e = 0.2
             loss_episode = []
 
             '''Train'''
@@ -228,7 +239,10 @@ class trainer():
 
             '''Validation'''
             done = False
-            state = self.env.reset()[0][:6]
+            if self.sim == 'LunarLander-v2':
+                state = self.env.reset()[0][:6]
+            elif self.sim == 'MountainCar-v0':
+                state = self.env.reset()[0]
             val_score = 0
 
             while not done:
@@ -263,7 +277,7 @@ if __name__ == '__main__':
     import absl.logging
     absl.logging.set_verbosity(absl.logging.ERROR)
 
-    gpu_limit(4)
+    gpu_limit(2)
     np.random.seed(42)
 
     Trainer = trainer()

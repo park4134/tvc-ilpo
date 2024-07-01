@@ -7,7 +7,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from glob import glob
 from tqdm import tqdm
 import numpy as np
-import gym
+import gymnasium as gym
 import json
 import os
 
@@ -66,6 +66,12 @@ class DataGenerator():
                         'v' : list(self.state_list[:, 1]),
                         'action' : self.action_list
                         }
+        
+        # elif self.env_name == 'CartPole-v1':
+        #     dict_state = {'pos' : list(self.state_list[:, 0]),
+        #                 'v' : list(self.state_list[:, 1]),
+        #                 'action' : self.action_list
+        #                 }
             
         num = len(glob(os.path.join(self.save_path, self.file_name, 'senario*')))
         
@@ -90,9 +96,10 @@ class DataGenerator():
             while not dones:
                 action, _states = model.predict(obs, deterministic=True)  # 상태 저장 옵션 추가
                 obs, rewards, dones, info = vec_env.step(action)
-                self.state_list.append(obs[0])
-                self.action_list.append(action)
-                vec_env.render()
+                if not dones:
+                    self.state_list.append(obs[0])
+                    self.action_list.append(action)
+                    vec_env.render()
             self.save_result()
             obs = vec_env.reset()
             dones = False
@@ -100,14 +107,8 @@ class DataGenerator():
 
 if __name__ == "__main__":
     data_gen = DataGenerator(
-<<<<<<< HEAD
-                            env_name = 'LunarLander-v2',
-                            model_dir = 'PPO_lunar_217',
-                            observe_episodes = 1000
-=======
                             env_name = 'MountainCar-v0',
                             model_dir = 'PPO_MountainCar-v0_1',
-                            observe_episodes = 3000
->>>>>>> f32ece96f8140729ffb12cb3ea329657639fc38f
+                            observe_episodes = 300
                             )
     data_gen.generate()

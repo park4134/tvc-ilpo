@@ -1,0 +1,4 @@
+python d_data_analysis/clustering.py --sim LunarLander-v2 --expert_num 2 --data_num 0 --num_cluster 6 --dim 2 --c_method agglomerative --r_method pca
+python d_data_analysis/clustering.py --sim LunarLander-v2 --expert_num 2 --data_num 0 --num_cluster 7 --dim 2 --c_method agglomerative --r_method pca
+python d_data_analysis/clustering.py --sim LunarLander-v2 --expert_num 2 --data_num 0 --num_cluster 8 --dim 2 --c_method agglomerative --r_method pca
+python d_data_analysis/clustering.py --sim LunarLander-v2 --expert_num 2 --data_num 0 --num_cluster 9 --dim 2 --c_method agglomerative --r_method pca

@@ -12,8 +12,8 @@
 /train_expert
 /video
 
-# shell file
-*.sh
+# csv files
+*.csv
 
 # config directory
 /b_policy/configs

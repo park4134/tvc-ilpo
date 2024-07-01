@@ -9,6 +9,8 @@ from DataLoader import DataLoader, SeqDataLoader
 from copy import deepcopy
 from glob import glob
 from tqdm import tqdm
+
+import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 import json
@@ -127,6 +129,33 @@ class trainer():
 
         with open(os.path.join(self.save_path, 'config.yaml'), 'w') as f:
             yaml.dump(self.config_dic, f)
+    
+    def save_result_fig(self, dict_train, dict_val):
+        train_loss_step = np.array(dict_train['loss_total'])
+        train_metric_step = np.array(dict_train['metric'])
+        train_epochs = np.array(dict_train['epochs'])
+        val_loss_step = np.array(dict_val['loss_total'])
+        val_metric_step = np.array(dict_val['metric'])
+        val_epochs = np.array(dict_val['epochs'])
+
+        train_loss = [np.mean(train_loss_step[np.where(train_epochs == e)]) for e in range(np.max(dict_train['epochs']))]
+        val_loss = [np.mean(val_loss_step[np.where(val_epochs == e)]) for e in range(np.max(dict_val['epochs']))]
+        train_metric = [np.mean(train_metric_step[np.where(train_epochs == e)]) for e in range(np.max(dict_train['epochs']))]
+        val_metric = [np.mean(val_metric_step[np.where(val_epochs == e)]) for e in range(np.max(dict_val['epochs']))]
+
+        plt.figure(figsize=(12,4.5))
+        plt.subplot(1,2,1)
+        plt.title(f"Loss of model_{i}")
+        plt.plot(train_loss, label='Train loss')
+        plt.plot(val_loss, label='Validation loss')
+        plt.legend()
+
+        plt.subplot(1,2,2)
+        plt.title(f"Metric of model_{i}")
+        plt.plot(train_metric, label='Train metric')
+        plt.plot(val_metric, label='Validation metric')
+        plt.legend()
+        plt.savefig(os.path.join(self.save_path, 'result.png'))
 
     def serialize(self, obj):
         if isinstance(obj, np.float32):
@@ -154,6 +183,8 @@ class trainer():
             'metric' : self.val_metric,
             'epochs' : self.val_epochs
                     }
+        
+        
 
         with open(os.path.join(self.save_path, 'train_results.json'), 'w') as f:
             json.dump(dict_train, f, default=self.serialize)
@@ -182,10 +213,10 @@ class trainer():
                     loss_total = loss_min + loss_exp
                 metric, relative_metric = get_metric(delta_s, z_p, delta_s_hat)
 
-                self.train_loss_min.append(loss_min)
-                self.train_loss_exp.append(loss_exp)
-                self.train_loss_total.append(loss_total)
-                self.train_metric.append(metric)
+                self.train_loss_min.append(loss_min.numpy())
+                self.train_loss_exp.append(loss_exp.numpy())
+                self.train_loss_total.append(loss_total.numpy())
+                self.train_metric.append(metric.numpy())
                 self.train_epochs.append(epoch)
                 train_metric_epoch.append(metric)
 
@@ -209,10 +240,10 @@ class trainer():
                 loss_total = loss_min + loss_exp
                 metric, relative_metric = get_metric(delta_s, z_p, delta_s_hat)
 
-                self.val_loss_min.append(loss_min)
-                self.val_loss_exp.append(loss_exp)
-                self.val_loss_total.append(loss_total)
-                self.val_metric.append(metric)
+                self.val_loss_min.append(loss_min.numpy())
+                self.val_loss_exp.append(loss_exp.numpy())
+                self.val_loss_total.append(loss_total.numpy())
+                self.val_metric.append(metric.numpy())
                 self.val_epochs.append(epoch)
                 val_metric_epoch.append(metric)
 
@@ -241,12 +272,16 @@ class trainer():
 
             self.dataloader.on_epoch_end()
             self.val_metric_epoch_total.append(avg_metric)
+        
+        self.epoch = epoch
+        self.min_val_metric = np.min(self.val_metric_epoch_total)
+        self.save_train_results()
 
 if __name__=="__main__":
     import absl.logging
     absl.logging.set_verbosity(absl.logging.ERROR)
 
-    gpu_limit(4)
+    gpu_limit(2)
     np.random.seed(42)
 
     Trainer = trainer()

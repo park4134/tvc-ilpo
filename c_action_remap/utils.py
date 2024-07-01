@@ -3,7 +3,8 @@ import numpy as np
 
 def get_loss_map(action_mapped, action_label):
     
-    cross_entropy = tf.keras.losses.categorical_crossentropy(action_mapped, action_label)
+    # cross_entropy = tf.keras.losses.categorical_crossentropy(action_mapped, action_label)
+    cross_entropy = tf.keras.losses.categorical_crossentropy(action_label, action_mapped)
     # epsilon = tf.keras.backend.epsilon()
     # action_label = tf.clip_by_value(action_label, epsilon, 1)
 

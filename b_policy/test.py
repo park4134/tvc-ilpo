@@ -26,8 +26,6 @@ class tester():
         self.lrelu = self.config_dic['lrelu']
         self.seq = self.config_dic['seq']
         self.sim = self.config_dic['sim']
-        self.expert_num = self.config_dic['expert_num']
-        self.data_num = self.config_dic['data_num']
         self.delta_t = self.config_dic['dt']
         self.target_cols = self.config_dic['target_cols']
 
@@ -90,6 +88,8 @@ class tester():
         parser = argparse.ArgumentParser()
         parser.add_argument("--sim", default="LunarLander-v2", help="simulator of trained model.")
         parser.add_argument("--model_dir", default="model_0", help="yaml file of trained model.")
+        parser.add_argument("--expert_num", default=0, type=int, help="expert data info.")
+        parser.add_argument("--data_num", default=0, type=int, help="data number.")
         args = parser.parse_args()
 
         self.config_path = os.path.join(os.getcwd(), 'runs', 'policy', args.sim, 'train', args.model_dir, 'config.yaml')
@@ -98,6 +98,8 @@ class tester():
         
         self.sim = args.sim
         self.model_dir = args.model_dir
+        self.expert_num = args.expert_num
+        self.data_num = args.data_num
 
         return deepcopy(config_dic)
 
@@ -116,37 +118,19 @@ class tester():
             return obj.tolist()
 
     def save_test_results(self):
-        # print(self.test_metric.shape)
-        # print(self.test_z.shape)
-        # print(self.test_s.shape)
-        # print(self.test_s_next.shape)
-        # print(self.test_relative_metric.shape)
-        df_test = pd.DataFrame({
-            f'test_s_{self.target_cols[0]}' : self.test_s[:,0],
-            f'test_s_{self.target_cols[1]}' : self.test_s[:,1],
-            f'test_s_{self.target_cols[2]}' : self.test_s[:,2],
-            f'test_s_{self.target_cols[3]}' : self.test_s[:,3],
-            f'test_s_{self.target_cols[4]}' : self.test_s[:,4],
-            f'test_s_{self.target_cols[5]}' : self.test_s[:,5],
-            f'test_s_next_{self.target_cols[0]}' : self.test_s_next[:,0],
-            f'test_s_next_{self.target_cols[1]}' : self.test_s_next[:,1],
-            f'test_s_next_{self.target_cols[2]}' : self.test_s_next[:,2],
-            f'test_s_next_{self.target_cols[3]}' : self.test_s_next[:,3],
-            f'test_s_next_{self.target_cols[4]}' : self.test_s_next[:,4],
-            f'test_s_next_{self.target_cols[5]}' : self.test_s_next[:,5],
-            'test_metric' : self.test_metric,
-            'test_z' : self.test_z,
-            f'rel_metric_{self.target_cols[0]}' : self.test_relative_metric[:,0],
-            f'rel_metric_{self.target_cols[1]}' : self.test_relative_metric[:,1],
-            f'rel_metric_{self.target_cols[2]}' : self.test_relative_metric[:,2],
-            f'rel_metric_{self.target_cols[3]}' : self.test_relative_metric[:,3],
-            f'rel_metric_{self.target_cols[4]}' : self.test_relative_metric[:,4],
-            f'rel_metric_{self.target_cols[5]}' : self.test_relative_metric[:,5]
-                    })
-        # print(df_test.head())
-
-
-        df_test.to_csv(os.path.join(os.path.dirname(self.save_path), self.model_dir, f'test_result_p{int(self.delta_t / 0.02)}_z{self.n_latent_action}.csv'))
+        dict_test = {}
+        for i in range(len(self.target_cols)):
+            dict_test[f'test_s_{self.target_cols[i]}'] = self.test_s[:,i]
+            dict_test[f'test_s_next_{self.target_cols[i]}'] = self.test_s_next[:,i]
+            dict_test[f'rel_metric_{self.target_cols[i]}'] = self.test_relative_metric[:,i]
+        dict_test['test_metric'] = self.test_metric
+        dict_test['test_z'] = self.test_z
+        df_test = pd.DataFrame(dict_test)
+        if self.sim == 'LunarLander-v2':
+            p = int(self.delta_t / 0.02)
+        elif self.sim == 'MountainCar-v0':
+            p = int(self.delta_t / 30)
+        df_test.to_csv(os.path.join(os.path.dirname(self.save_path), self.model_dir, f'test_result_p{p}_z{self.n_latent_action}.csv'))
 
     def test(self):
         self.dataloader.get_data()
@@ -188,13 +172,13 @@ class tester():
         self.save_test_results()
 
         print(f"Test metric : {np.mean(self.test_metric):.5f}")
-        print(f"Test relative metric : {np.mean(self.test_relative_metric, axis=0):.5f}")
+        print(f"Test relative metric : {list(map(lambda x :round(x, 5),np.mean(self.test_relative_metric, axis=0)))}")
 
 if __name__=="__main__":
     import absl.logging
     absl.logging.set_verbosity(absl.logging.ERROR)
 
-    gpu_limit(4)
+    gpu_limit(2)
     np.random.seed(42)
 
     Tester = tester()

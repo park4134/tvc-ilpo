@@ -47,8 +47,12 @@ class Preprocessor():
         self.indices = np.arange(len(self.s))
 
         if self.is_normalize:
-            self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.])
-            self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.])
+            if self.sim == 'LunarLander-v2':
+                self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.], dtype = np.float32)
+                self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.], dtype = np.float32)
+            elif self.sim == 'MountainCar-v0':
+                self.min = np.array([-1.2, -0.07], dtype = np.float32)
+                self.max = np.array([0.6, 0.07], dtype = np.float32)
             # self.min = np.min(self.s, axis=0)
             # self.max = np.max(self.s, axis=0)
 
@@ -124,11 +128,15 @@ class SeqPreprocessor():
         self.indices = np.arange(len(self.s))
 
         if self.is_normalize:
-            # self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.])
-            # self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.])
-            s_origin = np.reshape(self.s[:, -1, :], (self.s.shape[0], self.s.shape[-1]))
-            self.min = np.min(s_origin, axis=0)
-            self.max = np.max(s_origin, axis=0)
+            if self.sim == 'LunarLander-v2':
+                self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.], dtype = np.float32)
+                self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.], dtype = np.float32)
+            elif self.sim == 'MountainCar-v0':
+                self.min = np.array([-1.2, -0.07], dtype = np.float32)
+                self.max = np.array([0.6, 0.07], dtype = np.float32)
+            # s_origin = np.reshape(self.s[:, -1, :], (self.s.shape[0], self.s.shape[-1]))
+            # self.min = np.min(s_origin, axis=0)
+            # self.max = np.max(s_origin, axis=0)
 
             self.s = np.divide(np.subtract(self.s, self.min), np.subtract(self.max, self.min))
             self.s_next = np.divide(np.subtract(self.s_next, self.min), np.subtract(self.max, self.min))
@@ -206,8 +214,14 @@ class ClusterPreprocessor(Preprocessor):
                 self.a = np.concatenate((self.a, a_), axis=0)
         
         if self.is_normalize:
-            self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.], dtype = np.float32)
-            self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.], dtype = np.float32)
+            if self.sim == 'LunarLander-v2':
+                self.min = np.array([-1.5, -1.5, -5., -5., -3.14, -5.], dtype = np.float32)
+                self.max = np.array([1.5, 1.5, 5., 5., 3.14, 5.], dtype = np.float32)
+            elif self.sim == 'MountainCar-v0':
+                self.min = np.array([-1.2, -0.07], dtype = np.float32)
+                self.max = np.array([0.6, 0.07], dtype = np.float32)
+            # self.min = np.array([-1.2, -0.07], dtype = np.float32)
+            # self.max = np.array([0.6, 0.07], dtype = np.float32)
             # self.min = np.min(self.s, axis=0)
             # self.max = np.max(self.s, axis=0)
 
@@ -230,9 +244,11 @@ class ClusterPreprocessor(Preprocessor):
         data = np.transpose(np.array(data, dtype=np.float32))
         action = np.array(action, dtype=np.float32).reshape(-1)
 
-        return deepcopy(data[:len(data)-self.patience,:]), deepcopy(data[self.patience:,:]), deepcopy(action)
+        return deepcopy(data[:len(data)-self.patience,:]), deepcopy(data[self.patience:,:]), deepcopy(action[:len(data)-self.patience])
 
     def save_data(self):
+        np.save(os.path.join(self.save_path, f's_{self.delta_t}.npy'), self.s)
+        np.save(os.path.join(self.save_path, f's_next_{self.delta_t}.npy'), self.s_next)
         np.save(os.path.join(self.save_path, f'delta_s_{self.delta_t}.npy'), self.delta_s)
         np.save(os.path.join(self.save_path, f'action_{self.delta_t}_{self.patience}.npy'), self.a)
         if self.is_normalize:
@@ -243,12 +259,11 @@ class ClusterPreprocessor(Preprocessor):
             np.save(os.path.join(self.save_path, f'std_{self.delta_t}.npy'), self.std)
 
 if __name__ == "__main__":
-    preprocessor = Preprocessor(sim = 'LunarLander-v2',
+    preprocessor = Preprocessor(sim = 'MountainCar-v0',
                                 num = 0,
-                                cycle_time = 0.02,
-                                delta_t = 0.02,
-                                target_cols = ['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w'],
-                                is_normalize = True
+                                cycle_time = 30,
+                                delta_t = 30,
+                                target_cols = ['pos', 'v']
                                 )
     
     # preprocessor = SeqPreprocessor(sim = 'LunarLander-v2',
@@ -261,7 +276,7 @@ if __name__ == "__main__":
     #                             )
 
     # preprocessor = ClusterPreprocessor(sim = 'LunarLander-v2',
-    #                             num = 0,
+    #                             num = 2,
     #                             cycle_time = 0.02,
     #                             delta_t = 0.02,
     #                             target_cols = ['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w']
