@@ -67,11 +67,13 @@ class DataGenerator():
                         'action' : self.action_list
                         }
         
-        # elif self.env_name == 'CartPole-v1':
-        #     dict_state = {'pos' : list(self.state_list[:, 0]),
-        #                 'v' : list(self.state_list[:, 1]),
-        #                 'action' : self.action_list
-        #                 }
+        elif self.env_name == 'CartPole-v1':
+            dict_state = {'pos' : list(self.state_list[:, 0]),
+                        'v' : list(self.state_list[:, 1]),
+                        'angle' : list(self.state_list[:, 2]),
+                        'w' : list(self.state_list[:, 3]),
+                        'action' : self.action_list
+                        }
             
         num = len(glob(os.path.join(self.save_path, self.file_name, 'senario*')))
         
@@ -107,8 +109,8 @@ class DataGenerator():
 
 if __name__ == "__main__":
     data_gen = DataGenerator(
-                            env_name = 'MountainCar-v0',
-                            model_dir = 'PPO_MountainCar-v0_1',
-                            observe_episodes = 300
+                            env_name = 'CartPole-v1',
+                            model_dir = 'PPO_cartpole_500.0',
+                            observe_episodes = 100
                             )
     data_gen.generate()

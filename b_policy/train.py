@@ -108,8 +108,8 @@ class trainer():
 
     def get_save_path(self):
         save_dir = os.path.join(os.getcwd(), 'runs', 'policy', self.sim, 'train')
-        number = len(glob(os.path.join(save_dir, 'model*')))
-        file_name = f'model_{number}'
+        self.number = len(glob(os.path.join(save_dir, 'model*')))
+        file_name = f'model_{self.number}'
         self.save_path = os.path.join(save_dir, file_name)
 
         if not os.path.isdir(self.save_path):
@@ -145,13 +145,13 @@ class trainer():
 
         plt.figure(figsize=(12,4.5))
         plt.subplot(1,2,1)
-        plt.title(f"Loss of model_{i}")
+        plt.title(f"Loss of model_{self.number}")
         plt.plot(train_loss, label='Train loss')
         plt.plot(val_loss, label='Validation loss')
         plt.legend()
 
         plt.subplot(1,2,2)
-        plt.title(f"Metric of model_{i}")
+        plt.title(f"Metric of model_{self.number}")
         plt.plot(train_metric, label='Train metric')
         plt.plot(val_metric, label='Validation metric')
         plt.legend()
@@ -184,7 +184,7 @@ class trainer():
             'epochs' : self.val_epochs
                     }
         
-        
+        self.save_result_fig(dict_train, dict_val)
 
         with open(os.path.join(self.save_path, 'train_results.json'), 'w') as f:
             json.dump(dict_train, f, default=self.serialize)

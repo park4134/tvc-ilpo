@@ -7,5 +7,5 @@ epochs: 2000
 buffer_size: 20000
 min_buffer_size: 10000
 e_init: 0.9
-e_decay_factor: 0.995
-e_min: 0.05
+e_decay_factor: 0.95
+e_min: 0.1

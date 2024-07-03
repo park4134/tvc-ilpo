@@ -53,6 +53,9 @@ class Preprocessor():
             elif self.sim == 'MountainCar-v0':
                 self.min = np.array([-1.2, -0.07], dtype = np.float32)
                 self.max = np.array([0.6, 0.07], dtype = np.float32)
+            elif self.sim == 'CartPole-v1':
+                self.min = np.array([-2.4, np.min(self.s, axis=0)[1], -0.2095, np.min(self.s, axis=0)[3]], dtype = np.float32)
+                self.max = np.array([2.4, np.max(self.s, axis=0)[1], 0.2095, np.max(self.s, axis=0)[3]], dtype = np.float32)
             # self.min = np.min(self.s, axis=0)
             # self.max = np.max(self.s, axis=0)
 
@@ -134,6 +137,9 @@ class SeqPreprocessor():
             elif self.sim == 'MountainCar-v0':
                 self.min = np.array([-1.2, -0.07], dtype = np.float32)
                 self.max = np.array([0.6, 0.07], dtype = np.float32)
+            elif self.sim == 'CartPole-v1':
+                self.min = np.array([-2.4, np.min(self.s, axis=0)[1], -0.2095, np.min(self.s, axis=0)[3]], dtype = np.float32)
+                self.max = np.array([2.4, np.max(self.s, axis=0)[1], 0.2095, np.max(self.s, axis=0)[3]], dtype = np.float32)
             # s_origin = np.reshape(self.s[:, -1, :], (self.s.shape[0], self.s.shape[-1]))
             # self.min = np.min(s_origin, axis=0)
             # self.max = np.max(s_origin, axis=0)
@@ -220,8 +226,9 @@ class ClusterPreprocessor(Preprocessor):
             elif self.sim == 'MountainCar-v0':
                 self.min = np.array([-1.2, -0.07], dtype = np.float32)
                 self.max = np.array([0.6, 0.07], dtype = np.float32)
-            # self.min = np.array([-1.2, -0.07], dtype = np.float32)
-            # self.max = np.array([0.6, 0.07], dtype = np.float32)
+            elif self.sim == 'CartPole-v1':
+                self.min = np.array([-2.4, np.min(self.s, axis=0)[1], -0.2095, np.min(self.s, axis=0)[3]], dtype = np.float32)
+                self.max = np.array([2.4, np.max(self.s, axis=0)[1], 0.2095, np.max(self.s, axis=0)[3]], dtype = np.float32)
             # self.min = np.min(self.s, axis=0)
             # self.max = np.max(self.s, axis=0)
 
@@ -259,12 +266,26 @@ class ClusterPreprocessor(Preprocessor):
             np.save(os.path.join(self.save_path, f'std_{self.delta_t}.npy'), self.std)
 
 if __name__ == "__main__":
-    preprocessor = Preprocessor(sim = 'MountainCar-v0',
-                                num = 0,
-                                cycle_time = 30,
-                                delta_t = 30,
-                                target_cols = ['pos', 'v']
-                                )
+    # preprocessor = Preprocessor(sim = 'LunarLander-v2',
+    #                             num = 0,
+    #                             cycle_time = 0.02,
+    #                             delta_t = 0.02,
+    #                             target_cols = ['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w'],
+    #                             )
+    
+    # preprocessor = Preprocessor(sim = 'CartPole-v1',
+    #                             num = 1,
+    #                             cycle_time = 0.02,
+    #                             delta_t = 0.02,
+    #                             target_cols = ['pos', 'v', 'angle', 'w'],
+    #                             )
+
+    # preprocessor = Preprocessor(sim = 'MountainCar-v0',
+    #                             num = 0,
+    #                             cycle_time = 30,
+    #                             delta_t = 30,
+    #                             target_cols = ['pos', 'v']
+    #                             )
     
     # preprocessor = SeqPreprocessor(sim = 'LunarLander-v2',
     #                             num = 1,
@@ -275,12 +296,12 @@ if __name__ == "__main__":
     #                             is_normalize = True
     #                             )
 
-    # preprocessor = ClusterPreprocessor(sim = 'LunarLander-v2',
-    #                             num = 2,
-    #                             cycle_time = 0.02,
-    #                             delta_t = 0.02,
-    #                             target_cols = ['pos_x', 'pos_y', 'v_x', 'v_y', 'angle', 'w']
-    #                             )
+    preprocessor = ClusterPreprocessor(sim = 'CartPole-v1',
+                                num = 0,
+                                cycle_time = 0.02,
+                                delta_t = 0.02,
+                                target_cols = ['pos', 'v', 'angle', 'w'],
+                                )
     
     preprocessor.get_data()
     preprocessor.save_data()
