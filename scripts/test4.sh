@@ -1,4 +1,9 @@
-python b_policy/test.py --sim LunarLander-v2 --model_dir model_139 --expert_num 1 --data_num 0
-python b_policy/test.py --sim LunarLander-v2 --model_dir model_135 --expert_num 1 --data_num 0
-python b_policy/test.py --sim LunarLander-v2 --model_dir model_137 --expert_num 1 --data_num 0
-python b_policy/test.py --sim LunarLander-v2 --model_dir model_140 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_9 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_10 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_11 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_12 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_14 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_15 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_16 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_17 --expert_num 1 --data_num 0
+python b_policy/test.py --sim Acrobot-v1 --model_dir model_13 --expert_num 1 --data_num 0

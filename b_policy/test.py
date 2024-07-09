@@ -132,6 +132,8 @@ class tester():
             p = int(self.delta_t / 30)
         elif self.sim == 'CartPole-v1':
             p = int(self.delta_t / 0.02)
+        elif self.sim == 'Acrobot-v1':
+            p = int(self.delta_t / 0.2)
         df_test.to_csv(os.path.join(os.path.dirname(self.save_path), self.model_dir, f'test_result_p{p}_z{self.n_latent_action}.csv'))
 
     def test(self):

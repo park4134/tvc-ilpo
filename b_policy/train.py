@@ -92,6 +92,7 @@ class trainer():
         self.val_epochs = []
 
         self.val_metric_epoch_total = [np.inf]
+        self.val_loss_epoch_total = [np.inf]
 
     def get_config(self):
         import argparse
@@ -126,6 +127,7 @@ class trainer():
         self.config_dic['learning_rate'] = self.learning_rate
         self.config_dic['epoch'] = self.epoch
         self.config_dic['min_val_metric'] = float(self.min_val_metric)
+        self.config_dic['min_val_loss'] = float(self.min_val_loss)
 
         with open(os.path.join(self.save_path, 'config.yaml'), 'w') as f:
             yaml.dump(self.config_dic, f)
@@ -228,6 +230,7 @@ class trainer():
             del s, delta_s, z_p, delta_s_hat, loss_min, loss_exp, loss_total, metric, grads
 
             val_metric_epoch = []
+            val_loss_epoch = []
 
             '''Validation step'''
             for j in tqdm(range(self.dataloader.len_val)):
@@ -246,12 +249,18 @@ class trainer():
                 self.val_metric.append(metric.numpy())
                 self.val_epochs.append(epoch)
                 val_metric_epoch.append(metric)
+                val_loss_epoch.append(loss_total.numpy())
 
             avg_metric = np.mean(val_metric_epoch)
-            print(f"Validation metric : {avg_metric:.5f}")
+            avg_loss = np.mean(val_loss_epoch)
+            print(f"Validation metric : {avg_metric:.5f} \t Validation loss : {avg_loss:.5f}")
 
-            if avg_metric <= np.min(self.val_metric_epoch_total):
-                print(f"Update weights : Current >> {avg_metric:.5f}, Previous >> {self.val_metric_epoch_total[-1]:.5f}, Minimum >> {np.min(self.val_metric_epoch_total):.5f}")
+            # if avg_metric <= np.min(self.val_metric_epoch_total):
+            #     print(f"Update weights : Current >> {avg_metric:.5f}, Previous >> {self.val_metric_epoch_total[-1]:.5f}, Minimum >> {np.min(self.val_metric_epoch_total):.5f}")
+            #     print(f"Target columns relative metric :", end=' ')
+            #     print(relative_metric)
+            if avg_loss <= np.min(self.val_loss_epoch_total):
+                print(f"Update weights : Current >> {avg_loss:.5f}, Previous >> {self.val_loss_epoch_total[-1]:.5f}, Minimum >> {np.min(self.val_loss_epoch_total):.5f}")
                 print(f"Target columns relative metric :", end=' ')
                 print(relative_metric)
                 self.model.save_weights(os.path.join(self.save_path, 'best_weights'))
@@ -260,21 +269,27 @@ class trainer():
 
             else:
                 patience += 1
-                print(f"Maintain weights : Current >> {avg_metric:.5f}, Previous >> {self.val_metric_epoch_total[-1]:.5f}, Minimum >> {np.min(self.val_metric_epoch_total):.5f}")
+                # print(f"Maintain weights : Current >> {avg_metric:.5f}, Previous >> {self.val_metric_epoch_total[-1]:.5f}, Minimum >> {np.min(self.val_metric_epoch_total):.5f}")
+                # print(f"Target columns relative metric :", end=' ')
+                print(f"Maintain weights : Current >> {avg_loss:.5f}, Previous >> {self.val_loss_epoch_total[-1]:.5f}, Minimum >> {np.min(self.val_loss_epoch_total):.5f}")
                 print(f"Target columns relative metric :", end=' ')
                 print(relative_metric)
                 if patience >= self.max_patience:
                     print(f"Train finished : minimun of val_metric : {np.min(self.val_metric_epoch_total)}")
+                    print(f"Train finished : minimun of val_loss : {np.min(self.val_loss_epoch_total)}")
                     self.epoch = epoch
                     self.min_val_metric = np.min(self.val_metric_epoch_total)
+                    self.min_val_loss = np.min(self.val_loss_epoch_total)
                     self.save_train_results()
                     break
 
             self.dataloader.on_epoch_end()
             self.val_metric_epoch_total.append(avg_metric)
+            self.val_loss_epoch_total.append(avg_loss)
         
         self.epoch = epoch
         self.min_val_metric = np.min(self.val_metric_epoch_total)
+        self.min_val_loss = np.min(self.val_loss_epoch_total)
         self.save_train_results()
 
 if __name__=="__main__":

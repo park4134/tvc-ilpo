@@ -74,6 +74,16 @@ class DataGenerator():
                         'w' : list(self.state_list[:, 3]),
                         'action' : self.action_list
                         }
+        
+        elif self.env_name == 'Acrobot-v1':
+            dict_state = {'cos1' : list(self.state_list[:, 0]),
+                        'sin1' : list(self.state_list[:, 1]),
+                        'cos2' : list(self.state_list[:, 2]),
+                        'sin2' : list(self.state_list[:, 3]),
+                        'w1' : list(self.state_list[:, 4]),
+                        'w2' : list(self.state_list[:, 5]),
+                        'action' : self.action_list
+                        }
             
         num = len(glob(os.path.join(self.save_path, self.file_name, 'senario*')))
         
@@ -87,30 +97,32 @@ class DataGenerator():
         env = gym.make(self.env_name, render_mode="rgb_array")
         model_path = os.path.join(os.getcwd(), "runs/expert/", self.env_name, self.model_dir)
         model = PPO.load(model_path, env=env)
-        dones = False
-
         vec_env = model.get_env()
-        obs = vec_env.reset()
-        self.state_list.append(obs[0])
-        c = 0
-
+        
         for e in tqdm(range(self.observe_episodes)):
+            dones = False
+            obs = vec_env.reset()
+            self.state_list.append(obs[0])
+
             while not dones:
                 action, _states = model.predict(obs, deterministic=True)  # 상태 저장 옵션 추가
                 obs, rewards, dones, info = vec_env.step(action)
                 if not dones:
-                    self.state_list.append(obs[0])
                     self.action_list.append(action)
+                    self.state_list.append(obs[0])
                     vec_env.render()
             self.save_result()
-            obs = vec_env.reset()
-            dones = False
         vec_env.close()
 
 if __name__ == "__main__":
+    # data_gen = DataGenerator(
+    #                         env_name = 'CartPole-v1',
+    #                         model_dir = 'PPO_cartpole_500.0',
+    #                         observe_episodes = 100
+    #                         )
     data_gen = DataGenerator(
-                            env_name = 'CartPole-v1',
-                            model_dir = 'PPO_cartpole_500.0',
+                            env_name = 'Acrobot-v1',
+                            model_dir = 'PPO_Acrobot-v1_-63.0',
                             observe_episodes = 100
                             )
     data_gen.generate()

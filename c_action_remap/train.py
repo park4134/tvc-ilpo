@@ -7,6 +7,7 @@ from model import ActionRemapNetwork
 from utils import get_loss_map, gpu_limit
 from tensorflow.keras.optimizers import Adam
 from collections import deque
+from copy import deepcopy
 from glob import glob
 from tqdm import tqdm
 
@@ -23,6 +24,7 @@ class trainer():
         self.get_save_path()
         self.env = gym.make(self.sim, render_mode="rgb_array")
         self.n_action = self.env.action_space.n
+        print(self.n_action)
         self.get_models()
 
         if self.is_normalize:
@@ -35,14 +37,20 @@ class trainer():
         
         # if self.is_standardize
 
+        self.train_loss_step = []
+        self.train_episode = []
+
         self.train_loss = []
         self.train_total_score = []
 
-        self.val_terminated = []
-        self.val_total_score = []
-        self.val_avg_metric = []
+        self.val_loss_step = []
         self.val_z = []
+        self.val_episode = []
+
+        self.val_terminated = []
         self.val_loss = []
+        self.val_total_score = [-10000]
+        self.val_avg_metric = [np.inf]
     
     def get_config(self):
         import argparse
@@ -62,6 +70,7 @@ class trainer():
         self.batch_size = self.config_dic['batch_size']
         self.learning_rate = self.config_dic['learning_rate']
         self.epochs = self.config_dic['epochs']
+        self.max_patience = self.config_dic['patience']
         self.buffer = deque(maxlen=self.config_dic['buffer_size'])
         self.min_buffer_size = self.config_dic['min_buffer_size']
         self.e = self.config_dic['e_init']
@@ -132,19 +141,22 @@ class trainer():
     def save_train_results(self):
         self.save_config()
 
-        self.model_arm.save_weights(os.path.join(self.save_path, 'best_weights'))
-
         dict_train = {
+            'loss_step' : self.train_loss_step,
+            'episode' : self.train_episode,
             'loss' : self.train_loss,
             'score' : self.train_total_score
         }
 
         dict_val = {
+            'loss_step' : self.val_loss_step,
+            'episode' : self.val_episode,
+            'z' : self.val_z,
+
             'terminated' : self.val_terminated,
-            'score' : self.val_total_score,
-            'metric' : self.val_avg_metric,
-            'loss' : self.val_loss,
-            'z' : self.val_z
+            'score' : self.val_total_score[1:],
+            'metric' : self.val_avg_metric[1:],
+            'loss' : self.val_loss
         }
 
         with open(os.path.join(self.save_path, 'train_results.json'), 'w') as f:
@@ -197,12 +209,12 @@ class trainer():
         else:
             self.state = self.env.reset()[0]
     
-    def train_step(self):
+    def train_step(self, n):
         if self.is_normalize:
             self.state = tf.divide(tf.subtract(self.state, self.min), tf.subtract(self.max, self.min))
 
-        z_p, delta_s_hat = self.model_lpn(tf.expand_dims(self.state, axis=0)) # z_p : (batch, n_latent_action) / delta_s_hat : (batch, n_latent_action, n_state)
-        max_z = tf.one_hot(tf.argmax(z_p, axis=-1), self.n_latent_action)
+        self.z_p, delta_s_hat = self.model_lpn(tf.expand_dims(self.state, axis=0)) # z_p : (batch, n_latent_action) / delta_s_hat : (batch, n_latent_action, n_state)
+        max_z = tf.one_hot(tf.argmax(self.z_p, axis=-1), self.n_latent_action)
         delta_s_hat = tf.reshape(delta_s_hat, (self.n_latent_action, self.n_state))
 
         action, action_mapped = self.e_greedy_action(self.state, max_z)
@@ -224,15 +236,17 @@ class trainer():
 
         if len(self.buffer) >= self.min_buffer_size:
             loss = self.update_model()
-            self.loss_episode.append(loss)
+            self.train_loss_episode.append(loss.numpy())
+            self.train_loss_step.append(loss.numpy())
+            self.train_episode.append(n)
     
-    def validate_step(self):
+    def validate_step(self, n):
         if self.is_normalize:
             self.state = tf.divide(tf.subtract(self.state, self.min), tf.subtract(self.max, self.min))
         
-        z_p, delta_s_hat = self.model_lpn(tf.expand_dims(self.state, axis=0)) # z_p : (batch, n_latent_action) / delta_s_hat : (batch, n_latent_action, n_state)
-        max_z = tf.one_hot(tf.argmax(z_p, axis=-1), self.n_latent_action)
-        max_delta_s_hat = tf.reshape(delta_s_hat, (self.n_latent_action, self.n_state))[tf.argmax(tf.reshape(z_p, (self.n_latent_action,)), axis=-1).numpy()]
+        self.z_p, delta_s_hat = self.model_lpn(tf.expand_dims(self.state, axis=0)) # z_p : (batch, n_latent_action) / delta_s_hat : (batch, n_latent_action, n_state)
+        max_z = tf.one_hot(tf.argmax(self.z_p, axis=-1), self.n_latent_action)
+        max_delta_s_hat = tf.reshape(delta_s_hat, (self.n_latent_action, self.n_state))[tf.argmax(tf.reshape(self.z_p, (self.n_latent_action,)), axis=-1).numpy()]
 
         action_mapped = self.model_arm((tf.expand_dims(self.state, axis=0), max_z))
         action = tf.argmax(tf.reshape(action_mapped, (self.n_action, )), axis=-1).numpy()
@@ -247,7 +261,7 @@ class trainer():
             next_state = tf.divide(tf.subtract(next_state, self.min), tf.subtract(self.max, self.min))
         
         metric = tf.subtract(next_state, max_delta_s_hat)
-        metric = tf.norm(metric)
+        metric = tf.reduce_mean(tf.square(metric))
 
         delta_s = tf.subtract(next_state, self.state) # (n_state, )
         delta_s = tf.tile(delta_s, [self.n_latent_action])
@@ -259,39 +273,42 @@ class trainer():
         action_label = self.model_arm((tf.expand_dims(self.state, axis=0), tf.expand_dims(min_z, axis=0)))
 
         loss = get_loss_map(action_mapped, action_label)
-        
+
         self.state = next_state
         self.val_score += reward
         self.val_metric.append(metric)
-        self.val_z.append(tf.argmax(tf.reshape(z_p, (self.n_latent_action,)), axis=-1).numpy())
-        self.val_loss_episode.append(loss)
+        self.val_z.append(int(tf.argmax(tf.reshape(self.z_p, (self.n_latent_action,)), axis=-1).numpy()))
+        if len(self.buffer) >= self.min_buffer_size:
+            self.val_loss_episode.append(loss.numpy())
+            self.val_loss_step.append(loss.numpy())
+            self.val_episode.append(n)
     
     def train(self):
         self.optimizer = Adam(learning_rate=self.learning_rate)
+        patience = 0
 
         for n in range(self.epochs):
             self.env_init()
 
-            # self.e = max(self.e_min, self.e * self.e_decay_factor)
-            self.e = 0.2
+            self.e = max(self.e_min, self.e * self.e_decay_factor)
+            # self.e = 0.2
 
             self.train_score = 0
-            self.loss_episode = []
+            self.train_loss_episode = []
 
             '''Train'''
             while not self.done:
-                self.train_step()
+                self.train_step(n)
             
             self.train_total_score.append(self.train_score)
 
-            if len(self.buffer) >= self.min_buffer_size:
-                self.train_loss.append(np.mean(self.loss_episode))
-            else:
-                self.train_loss.append(0.0)
-            
             print('----------------------------------------------------------------')
-            print(f'Epoch >> {n}\t\tEpsilon >> {self.e:.4f}\t\tBuffer Size >> {len(self.buffer)}')
-            print(f'Train Loss >> {self.train_loss[-1]:.4f}\tTrain Score >> {self.train_score:.4f}', end='')
+            print(f'Episode >> {n}\t\tEpsilon >> {self.e:.4f}\t\tBuffer Size >> {len(self.buffer)}')
+            if len(self.buffer) >= self.min_buffer_size:
+                self.train_loss.append(np.mean(self.train_loss_episode))
+                print(f'Train Loss >> {self.train_loss[-1]:.4f}\tTrain Score >> {self.train_score:.4f}', end='')
+            else:
+                print(f'Train Loss >>    -   \tTrain Score >> {self.train_score:.4f}', end='')
 
             '''Validation'''
             self.env_init()
@@ -301,17 +318,34 @@ class trainer():
             self.val_loss_episode = []
 
             while not self.done:
-                self.validate_step()
+                self.validate_step(n)
+
+            if len(self.buffer) >= self.min_buffer_size:
+                self.val_loss.append(np.mean(self.val_loss_episode))
+                if np.mean(self.val_metric) <= np.min(self.val_avg_metric):
+                    self.model_arm.save_weights(os.path.join(self.save_path, 'best_weights_metric'))
+                
+                if self.val_score >= np.max(self.val_total_score):
+                    patience = 0
+                    self.model_arm.save_weights(os.path.join(self.save_path, 'best_weights_score'))
+                else:
+                    patience += 1
             
-            self.val_total_score.append(self.val_score)
-            self.val_avg_metric.append(np.mean(self.val_metric))
-            self.val_loss.append(np.mean(self.val_loss_episode))
             print(f'\tValidation Score >> {self.val_score:.4f}')
             if self.terminated:
                 self.val_terminated.append(1)
             else:
                 self.val_terminated.append(0)
             
+            self.val_avg_metric.append(np.mean(self.val_metric))
+            self.val_total_score.append(self.val_score)
+            
+            if patience >= self.max_patience:
+                print(f"Train finished : minimun of val_metric : {np.min(self.val_avg_metric)}")
+                self.save_train_results()
+                break
+        
+        # self.model_arm.save_weights(os.path.join(self.save_path, 'best_weights'))
         self.save_train_results()
 
 if __name__ == '__main__':
