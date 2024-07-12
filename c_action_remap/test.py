@@ -18,6 +18,7 @@ import numpy as np
 import random
 import json
 import yaml
+import math
 
 class tester():
     def __init__(self):
@@ -38,6 +39,9 @@ class tester():
         self.test_terminated = []
         self.test_total_score = []
         self.test_avg_metric = []
+
+        self.force = 0.001
+        self.gravity = 0.0025
     
     def get_config(self):
         import argparse
@@ -105,8 +109,8 @@ class tester():
             lrelu=self.lrelu
         )
         self.model_arm.build_graph()
-        # self.model_arm.load_weights(os.path.join(os.path.dirname(self.config_path), 'best_weights_metric'))
-        self.model_arm.load_weights(os.path.join(os.path.dirname(self.config_path), 'best_weights_score'))
+        self.model_arm.load_weights(os.path.join(os.path.dirname(self.config_path), 'best_weights_metric'))
+        # self.model_arm.load_weights(os.path.join(os.path.dirname(self.config_path), 'best_weights_score'))
     
     def serialize(self, obj):
         if isinstance(obj, np.float32):
@@ -132,6 +136,9 @@ class tester():
         self.done = False
         if self.sim == 'LunarLander-v2':
             self.state = self.env.reset()[0][:6]
+        # elif self.sim == 'MountainCar-v0':
+        #     obs = self.env.reset()[0]
+        #     self.state = np.concatenate((obs, [0.0]))
         else:
             self.state = self.env.reset()[0]
         self.video = VideoRecorder(self.env, path=os.path.join(self.save_path,f"video_{n}.mp4"))
@@ -156,6 +163,9 @@ class tester():
 
         if self.sim == 'LunarLander-v2':
             next_state = next_state[:6]
+        # elif self.sim == 'MountainCar-v0':
+        #     acc = (action - 1) * self.force + math.cos(3 * self.state[0]) * (-self.gravity)
+        #     next_state = np.concatenate((next_state, [acc]))
         
         if self.is_normalize:
             next_state = tf.divide(tf.subtract(next_state, self.min), tf.subtract(self.max, self.min))

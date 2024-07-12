@@ -9,6 +9,7 @@ from tqdm import tqdm
 import numpy as np
 import gymnasium as gym
 import json
+import math
 import os
 
 class DataGenerator():
@@ -18,6 +19,9 @@ class DataGenerator():
         self.model_dir = model_dir
         self.observe_episodes = observe_episodes
         self.get_save_path()
+
+        self.force = 0.001
+        self.gravity = 0.0025
 
         self.state_list = []
         self.action_list = []
@@ -66,6 +70,13 @@ class DataGenerator():
                         'v' : list(self.state_list[:, 1]),
                         'action' : self.action_list
                         }
+
+        # elif self.env_name == 'MountainCar-v0':
+        #     dict_state = {'pos' : list(self.state_list[:, 0]),
+        #                 'v' : list(self.state_list[:, 1]),
+        #                 'a' : list(self.state_list[:, 2]),
+        #                 'action' : self.action_list
+        #                 }
         
         elif self.env_name == 'CartPole-v1':
             dict_state = {'pos' : list(self.state_list[:, 0]),
@@ -102,14 +113,29 @@ class DataGenerator():
         for e in tqdm(range(self.observe_episodes)):
             dones = False
             obs = vec_env.reset()
+            # if self.env_name == 'MountainCar-v0':
+            #     acc = 0.0
+            #     state = (np.concatenate((obs[0], [acc])))
+            #     self.state_list.append(state)
+            # else:
+            #     self.state_list.append(obs[0])
             self.state_list.append(obs[0])
 
             while not dones:
-                action, _states = model.predict(obs, deterministic=True)  # 상태 저장 옵션 추가
+                if np.random.uniform(0, 1) <= 0.75:
+                    action, _states = model.predict(obs, deterministic=True)  # 상태 저장 옵션 추가
+                else:
+                    action = [vec_env.action_space.sample()]
                 obs, rewards, dones, info = vec_env.step(action)
                 if not dones:
-                    self.action_list.append(action)
+                #     if self.env_name == 'MountainCar-v0':
+                #         acc = (action - 1) * self.force + math.cos(3 * obs[0][0]) * (-self.gravity)
+                #         state = (np.concatenate((obs[0], acc)))
+                #         self.state_list.append(state)
+                #     else:
+                #         self.state_list.append(obs[0])
                     self.state_list.append(obs[0])
+                    self.action_list.append(action)
                     vec_env.render()
             self.save_result()
         vec_env.close()
@@ -120,9 +146,15 @@ if __name__ == "__main__":
     #                         model_dir = 'PPO_cartpole_500.0',
     #                         observe_episodes = 100
     #                         )
+    # data_gen = DataGenerator(
+    #                         env_name = 'Acrobot-v1',
+    #                         model_dir = 'PPO_Acrobot-v1_-63.0',
+    #                         observe_episodes = 100
+    #                         )
+    
     data_gen = DataGenerator(
-                            env_name = 'Acrobot-v1',
-                            model_dir = 'PPO_Acrobot-v1_-63.0',
+                            env_name = 'MountainCar-v0',
+                            model_dir = 'PPO_MountainCar-v0_2',
                             observe_episodes = 100
                             )
     data_gen.generate()

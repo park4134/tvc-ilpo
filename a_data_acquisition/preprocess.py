@@ -289,12 +289,12 @@ if __name__ == "__main__":
     #                             target_cols = ['pos', 'v', 'angle', 'w'],
     #                             )
 
-    # preprocessor = Preprocessor(sim = 'MountainCar-v0',
-    #                             num = 0,
-    #                             cycle_time = 30,
-    #                             delta_t = 30,
-    #                             target_cols = ['pos', 'v']
-    #                             )
+    preprocessor = Preprocessor(sim = 'MountainCar-v0',
+                                num = 6,
+                                cycle_time = 30,
+                                delta_t = 30,
+                                target_cols = ['pos', 'v']
+                                )
 
     # preprocessor = Preprocessor(sim = 'Acrobot-v1',
     #                             num = 1,
@@ -313,13 +313,13 @@ if __name__ == "__main__":
     #                             is_normalize = True
     #                             )
 
-    preprocessor = SeqPreprocessor(sim = 'MountainCar-v0',
-                                num = 1,
-                                seq = 5,
-                                cycle_time = 30,
-                                delta_t = 30,
-                                target_cols = ['pos', 'v']
-                                )
+    # preprocessor = SeqPreprocessor(sim = 'MountainCar-v0',
+    #                             num = 1,
+    #                             seq = 5,
+    #                             cycle_time = 30,
+    #                             delta_t = 30,
+    #                             target_cols = ['pos', 'v']
+    #                             )
 
 
     # preprocessor = ClusterPreprocessor(sim = 'CartPole-v1',

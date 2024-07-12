@@ -25,6 +25,71 @@ class StateEmbedding(tf.keras.layers.Layer):
             s_e = self.s_e_dense[i+1](s_e)
 
         return s_e
+
+class LatentPolicy(tf.keras.layers.Layer):
+    def __init__(self, units, layer_num, n_latent_action, lrelu=0.2):
+        super(LatentPolicy, self).__init__()
+        self.units = units
+        self.layer_num = layer_num
+        self.lrelu = lrelu
+        self.n_latent_action = n_latent_action
+
+        self.policy_lrelu_top = LeakyReLU(alpha=self.lrelu, name = 'Policy_lrelu_top')
+        self.policy_dense_top = Dense(units=self.n_latent_action, name = 'Policy_Dense_top')
+        self.policy_softmax = Softmax(name='Policy_Softmax')
+    
+    def call(self, inputs):
+        e = self.policy_lrelu_top(inputs)
+        z_p = self.policy_dense_top(e)
+        z_p = self.policy_softmax(z_p)
+
+        return e, z_p
+
+class Generator(tf.keras.layers.Layer):
+    def __init__(self, units, layer_num, n_latent_action, n_state, lrelu=0.2):
+        super(Generator, self).__init__()
+        self.units = units
+        self.layer_num = layer_num
+        self.lrelu = lrelu
+        self.n_latent_action = n_latent_action
+        self.n_state = n_state
+
+        self.action_embedding_dense = Dense(units = 2*self.units, name = 'Action_Embedding_Dense')
+        self.action_embedding_lrelu = LeakyReLU(alpha = self.lrelu, name = 'Action_Embedding_lrelu')
+
+        self.generator_dense = []
+        self.generator_dense.append(Dense(units = 2*self.units, name = 'Generator_Dense_0'))
+        self.generator_dense.append(Dense(units = self.units, name = 'Generator_Dense_1'))
+        self.generator_dense.append(Dense(units = self.n_state, name = 'Generator_Dense_top'))
+
+        self.generator_lrelu = []
+        self.generator_lrelu.append(LeakyReLU(alpha=self.lrelu, name = 'Generator_lrelu_0'))
+        self.generator_lrelu.append(LeakyReLU(alpha=self.lrelu, name = 'Generator_lrelu_1'))
+
+    def call(self, inputs):
+        for latent_act in range(self.n_latent_action):
+            z_onehot = tf.one_hot([latent_act], self.n_latent_action)
+            z = self.action_embedding_dense(z_onehot)
+            z = self.action_embedding_lrelu(z) # z : (1, 2*units)
+
+            z = tf.tile(z, [1, tf.shape(inputs)[0]])
+            z = tf.reshape(z, (tf.shape(inputs)[0], 2*self.units)) # z : (batch, 2*units)
+
+            concat = tf.concat([inputs, z], axis=-1) # concat : (batch, 4*units)
+
+            for i in range(len(self.generator_lrelu)):
+                concat = self.generator_dense[i](concat)
+                concat = self.generator_lrelu[i](concat)
+
+            g = self.generator_dense[-1](concat) # g : (batch, n_state)
+            g = tf.expand_dims(g, axis=1) # g : (batch, 1, n_state)
+
+            if latent_act == 0:
+                delta_s = g
+            else:
+                delta_s = tf.concat([delta_s, g], axis=1) # delta_s : (batch, n_latent_action, n_state)
+
+        return delta_s
     
 class SeqStateEmbedding(tf.keras.layers.Layer):
     def __init__(self, units, layer_num, lrelu=0.2):
@@ -69,21 +134,21 @@ class PolicyNetwork(Model):
             layer_num = self.layer_num,
             lrelu = self.lrelu
         )
-        self.state_embedding_lrelu_top = LeakyReLU(alpha=self.lrelu, name = 'State_Embedding_lrelu_top')
-        self.state_embedding_dense_top = Dense(units=self.n_latent_action, name = 'State_Embedding_Dense_top')
-        self.state_embedding_softmax = Softmax(name='Action_Probability_Softmax')
 
-        self.action_embedding_dense = Dense(units = 2*self.units, name = 'Action_Embedding_Dense')
-        self.action_embedding_lrelu = LeakyReLU(alpha = self.lrelu, name = 'Action_Embedding_lrelu')
+        self.latent_policy = LatentPolicy(
+            units = self.units,
+            layer_num = self.layer_num,
+            lrelu = self.lrelu,
+            n_latent_action = self.n_latent_action
+        )
 
-        self.generator_dense = []
-        self.generator_dense.append(Dense(units = 2*self.units, name = 'Generator_Dense_0'))
-        self.generator_dense.append(Dense(units = self.units, name = 'Generator_Dense_1'))
-        self.generator_dense.append(Dense(units = self.n_state, name = 'Generator_Dense_top'))
-
-        self.generator_lrelu = []
-        self.generator_lrelu.append(LeakyReLU(alpha=self.lrelu, name = 'Generator_lrelu_0'))
-        self.generator_lrelu.append(LeakyReLU(alpha=self.lrelu, name = 'Generator_lrelu_1'))
+        self.generator = Generator(
+            units = self.units,
+            layer_num = self.layer_num,
+            lrelu = self.lrelu,
+            n_latent_action = self.n_latent_action,
+            n_state = self.n_state
+        )
 
     def build_graph(self):
         self.input_layer = Input(shape=(self.n_state,), name='Input_layer')
@@ -95,33 +160,81 @@ class PolicyNetwork(Model):
     
     def call(self, inputs, training=False):
         s_e = self.state_embedding(inputs) # e : (batch, 2*units), z_p : (batch, n_latent_action)
-        e = self.state_embedding_lrelu_top(s_e)
-        z_p = self.state_embedding_dense_top(e)
-        z_p = self.state_embedding_softmax(z_p)
 
-        for latent_act in range(self.n_latent_action):
-            z_onehot = tf.one_hot([latent_act], self.n_latent_action)
-            z = self.action_embedding_dense(z_onehot)
-            z = self.action_embedding_lrelu(z) # z : (1, 2*units)
+        e, z_p = self.latent_policy(s_e)
 
-            z = tf.tile(z, [1, tf.shape(e)[0]])
-            z = tf.reshape(z, (tf.shape(e)[0], 2*self.units)) # z : (batch, 2*units)
+        delta_s = self.generator(e)
 
-            concat = tf.concat([e, z], axis=-1) # concat : (batch, 4*units)
-
-            for i in range(len(self.generator_lrelu)):
-                concat = self.generator_dense[i](concat)
-                concat = self.generator_lrelu[i](concat)
-
-            g = self.generator_dense[-1](concat) # g : (batch, n_state)
-            g = tf.expand_dims(g, axis=1) # g : (batch, 1, n_state)
-
-            if latent_act == 0:
-                delta_s = g
-            else:
-                delta_s = tf.concat([delta_s, g], axis=1) # delta_s : (batch, n_latent_action, n_state)
-        
         return z_p, delta_s
+
+# class PolicyNetwork(Model):
+#     def __init__(self, n_state, n_latent_action, units, layer_num, batch_size, lrelu=0.2):
+#         super().__init__()
+#         self.n_state = n_state
+#         self.n_latent_action = n_latent_action
+#         self.units = units
+#         self.layer_num = layer_num
+#         self.batch_size = batch_size
+#         self.lrelu = lrelu
+
+#         self.state_embedding = StateEmbedding(
+#             units = self.units,
+#             layer_num = self.layer_num,
+#             lrelu = self.lrelu
+#         )
+#         self.state_embedding_lrelu_top = LeakyReLU(alpha=self.lrelu, name = 'State_Embedding_lrelu_top')
+#         self.state_embedding_dense_top = Dense(units=self.n_latent_action, name = 'State_Embedding_Dense_top')
+#         self.state_embedding_softmax = Softmax(name='Action_Probability_Softmax')
+
+#         self.action_embedding_dense = Dense(units = 2*self.units, name = 'Action_Embedding_Dense')
+#         self.action_embedding_lrelu = LeakyReLU(alpha = self.lrelu, name = 'Action_Embedding_lrelu')
+
+#         self.generator_dense = []
+#         self.generator_dense.append(Dense(units = 2*self.units, name = 'Generator_Dense_0'))
+#         self.generator_dense.append(Dense(units = self.units, name = 'Generator_Dense_1'))
+#         self.generator_dense.append(Dense(units = self.n_state, name = 'Generator_Dense_top'))
+
+#         self.generator_lrelu = []
+#         self.generator_lrelu.append(LeakyReLU(alpha=self.lrelu, name = 'Generator_lrelu_0'))
+#         self.generator_lrelu.append(LeakyReLU(alpha=self.lrelu, name = 'Generator_lrelu_1'))
+
+#     def build_graph(self):
+#         self.input_layer = Input(shape=(self.n_state,), name='Input_layer')
+#         self.out = self.call(self.input_layer)
+#         self.build(input_shape=(self.batch_size, self.n_state))
+#         self.summary()
+
+#         return Model(inputs=[self.input_layer], outputs=self.out)
+    
+#     def call(self, inputs, training=False):
+#         s_e = self.state_embedding(inputs) # e : (batch, 2*units), z_p : (batch, n_latent_action)
+#         e = self.state_embedding_lrelu_top(s_e)
+#         z_p = self.state_embedding_dense_top(e)
+#         z_p = self.state_embedding_softmax(z_p)
+
+#         for latent_act in range(self.n_latent_action):
+#             z_onehot = tf.one_hot([latent_act], self.n_latent_action)
+#             z = self.action_embedding_dense(z_onehot)
+#             z = self.action_embedding_lrelu(z) # z : (1, 2*units)
+
+#             z = tf.tile(z, [1, tf.shape(e)[0]])
+#             z = tf.reshape(z, (tf.shape(e)[0], 2*self.units)) # z : (batch, 2*units)
+
+#             concat = tf.concat([e, z], axis=-1) # concat : (batch, 4*units)
+
+#             for i in range(len(self.generator_lrelu)):
+#                 concat = self.generator_dense[i](concat)
+#                 concat = self.generator_lrelu[i](concat)
+
+#             g = self.generator_dense[-1](concat) # g : (batch, n_state)
+#             g = tf.expand_dims(g, axis=1) # g : (batch, 1, n_state)
+
+#             if latent_act == 0:
+#                 delta_s = g
+#             else:
+#                 delta_s = tf.concat([delta_s, g], axis=1) # delta_s : (batch, n_latent_action, n_state)
+        
+        # return z_p, delta_s
     
 class SeqPolicyNetwork(PolicyNetwork):
     def __init__(self, n_state, n_latent_action, seq, units, layer_num, batch_size, lrelu=0.2):

@@ -15,6 +15,9 @@
 # csv files
 *.csv
 
+# sh files
+/scripts/*.sh
+
 # config directory
 /b_policy/configs
 /c_action_remap/configs

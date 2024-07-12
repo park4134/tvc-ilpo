@@ -15,6 +15,7 @@ import tensorflow as tf
 import gymnasium as gym
 import numpy as np
 import random
+import math
 import json
 import yaml
 
@@ -51,6 +52,9 @@ class trainer():
         self.val_loss = []
         self.val_total_score = [-10000]
         self.val_avg_metric = [np.inf]
+
+        self.force = 0.001
+        self.gravity = 0.0025
     
     def get_config(self):
         import argparse
@@ -206,6 +210,9 @@ class trainer():
         self.done = False
         if self.sim == 'LunarLander-v2':
             self.state = self.env.reset()[0][:6]
+        # elif self.sim == 'MountainCar-v0':
+        #     obs = self.env.reset()[0]
+        #     self.state = np.concatenate((obs, [0.0]))
         else:
             self.state = self.env.reset()[0]
     
@@ -224,6 +231,9 @@ class trainer():
 
         if self.sim == 'LunarLander-v2':
             next_state = next_state[:6]
+        # elif self.sim == 'MountainCar-v0':
+        #     acc = (action - 1) * self.force + math.cos(3 * self.state[0]) * (-self.gravity)
+        #     next_state = np.concatenate((next_state, [acc]))
 
         if self.is_normalize:
             next_state = tf.divide(tf.subtract(next_state, self.min), tf.subtract(self.max, self.min))
@@ -231,8 +241,8 @@ class trainer():
         if not self.done:
             self.buffer.append((self.state, action_mapped, delta_s_hat, next_state))
 
-        self.state = next_state
         self.train_score += reward
+        self.state = next_state
 
         if len(self.buffer) >= self.min_buffer_size:
             loss = self.update_model()
@@ -256,6 +266,9 @@ class trainer():
 
         if self.sim == 'LunarLander-v2':
             next_state = next_state[:6]
+        # elif self.sim == 'MountainCar-v0':
+        #     acc = (action - 1) * self.force + math.cos(3 * self.state[0]) * (-self.gravity)
+        #     next_state = np.concatenate((next_state, [acc]))
         
         if self.is_normalize:
             next_state = tf.divide(tf.subtract(next_state, self.min), tf.subtract(self.max, self.min))
@@ -267,7 +280,7 @@ class trainer():
         delta_s = tf.tile(delta_s, [self.n_latent_action])
         delta_s = tf.reshape(delta_s, (self.n_latent_action, self.n_state))
 
-        dist = tf.norm(tf.subtract(tf.reshape(delta_s_hat, (self.n_latent_action, self.n_state)), delta_s), axis=-1) # (n_latent_action,)
+        dist = tf.norm(tf.subtract(tf.reshape(delta_s_hat, (self.n_latent_action, self.n_state)), tf.cast(delta_s, dtype=tf.float32)), axis=-1) # (n_latent_action,)
         min_z = tf.one_hot(tf.argmin(dist, axis=-1), self.n_latent_action) # (n_latent_action,)
 
         action_label = self.model_arm((tf.expand_dims(self.state, axis=0), tf.expand_dims(min_z, axis=0)))
@@ -290,8 +303,8 @@ class trainer():
         for n in range(self.epochs):
             self.env_init()
 
-            self.e = max(self.e_min, self.e * self.e_decay_factor)
-            # self.e = 0.2
+            # self.e = max(self.e_min, self.e * self.e_decay_factor)
+            self.e = 0.2
 
             self.train_score = 0
             self.train_loss_episode = []
@@ -325,7 +338,7 @@ class trainer():
                 if np.mean(self.val_metric) <= np.min(self.val_avg_metric):
                     self.model_arm.save_weights(os.path.join(self.save_path, 'best_weights_metric'))
                 
-                if self.val_score >= np.max(self.val_total_score):
+                if self.val_score > np.max(self.val_total_score):
                     patience = 0
                     self.model_arm.save_weights(os.path.join(self.save_path, 'best_weights_score'))
                 else:

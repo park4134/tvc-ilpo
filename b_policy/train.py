@@ -195,7 +195,8 @@ class trainer():
             json.dump(dict_val, f, default=self.serialize)
 
     def train(self):
-        self.optimizer = Adam(learning_rate=self.learning_rate)
+        self.optimizer_min = Adam(learning_rate=self.learning_rate)
+        self.optimizer_exp = Adam(learning_rate=self.learning_rate)
         self.dataloader.get_data()
         self.dataloader.split_train_val(val_ratio=0.2)
 
@@ -207,7 +208,7 @@ class trainer():
             for i in tqdm(range(self.dataloader.len_train)):
                 s, delta_s = self.dataloader.get_train_batch(i)
 
-                with tf.GradientTape() as tape:
+                with tf.GradientTape(persistent=True) as tape:
                     z_p, delta_s_hat = self.model(s, training=True)
 
                     loss_min = get_loss_min(delta_s, delta_s_hat)
@@ -222,12 +223,16 @@ class trainer():
                 self.train_epochs.append(epoch)
                 train_metric_epoch.append(metric)
 
-                grads = tape.gradient(loss_total, self.model.trainable_variables)
-                self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+                grads_min = tape.gradient(loss_min, self.model.state_embedding.trainable_variables + self.model.generator.trainable_variables)
+                grads_exp = tape.gradient(loss_exp, self.model.latent_policy.trainable_variables)
+
+                self.optimizer_min.apply_gradients(zip(grads_min, self.model.state_embedding.trainable_variables + self.model.generator.trainable_variables))
+                self.optimizer_exp.apply_gradients(zip(grads_exp, self.model.latent_policy.trainable_variables))
+
             print(f"Epoch : {epoch}")
             print(f"Train metric : {np.mean(train_metric_epoch):.5f}")
 
-            del s, delta_s, z_p, delta_s_hat, loss_min, loss_exp, loss_total, metric, grads
+            del s, delta_s, z_p, delta_s_hat, loss_min, loss_exp, loss_total, metric, grads_min, grads_exp
 
             val_metric_epoch = []
             val_loss_epoch = []
