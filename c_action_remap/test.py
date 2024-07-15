@@ -39,6 +39,7 @@ class tester():
         self.test_terminated = []
         self.test_total_score = []
         self.test_avg_metric = []
+        self.test_action = []
 
         self.force = 0.001
         self.gravity = 0.0025
@@ -109,8 +110,8 @@ class tester():
             lrelu=self.lrelu
         )
         self.model_arm.build_graph()
-        self.model_arm.load_weights(os.path.join(os.path.dirname(self.config_path), 'best_weights_metric'))
-        # self.model_arm.load_weights(os.path.join(os.path.dirname(self.config_path), 'best_weights_score'))
+        # self.model_arm.load_weights(os.path.join(os.path.dirname(self.config_path), 'best_weights_metric'))
+        self.model_arm.load_weights(os.path.join(os.path.dirname(self.config_path), 'best_weights_score'))
     
     def serialize(self, obj):
         if isinstance(obj, np.float32):
@@ -126,7 +127,8 @@ class tester():
             'terminated' : self.test_terminated,
             'score' : self.test_total_score,
             'metric' : self.test_avg_metric,
-            'n_latent_action' : self.n_latent_action
+            'n_latent_action' : self.n_latent_action,
+            'action' : self.test_action
         }
 
         with open(os.path.join(self.save_path, 'test_results.json'), 'w') as f:
@@ -156,6 +158,7 @@ class tester():
 
         action_mapped = self.model_arm((tf.expand_dims(self.state, axis=0), max_z))
         action = tf.argmax(tf.reshape(action_mapped, (self.n_action, )), axis=-1).numpy()
+        print(action_mapped)
 
         next_state, reward, self.terminated, truncated, info = self.env.step(action)
         self.env.render()
@@ -177,6 +180,7 @@ class tester():
         self.test_score += reward
         self.test_metric.append(metric)
         self.test_z.append(int(tf.argmax(tf.reshape(self.z_p, (self.n_latent_action,)), axis=-1).numpy()))
+        self.test_action.append(int(action))
     
     def test(self):
         for n in range(self.n_episodes):

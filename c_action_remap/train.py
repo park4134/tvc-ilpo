@@ -303,8 +303,8 @@ class trainer():
         for n in range(self.epochs):
             self.env_init()
 
-            # self.e = max(self.e_min, self.e * self.e_decay_factor)
-            self.e = 0.2
+            self.e = max(self.e_min, self.e * self.e_decay_factor)
+            # self.e = 0.2
 
             self.train_score = 0
             self.train_loss_episode = []
@@ -354,6 +354,8 @@ class trainer():
             self.val_total_score.append(self.val_score)
             
             if patience >= self.max_patience:
+                if self.val_score == np.max(self.val_total_score):
+                    self.model_arm.save_weights(os.path.join(self.save_path, 'best_weights_score'))
                 print(f"Train finished : minimun of val_metric : {np.min(self.val_avg_metric)}")
                 self.save_train_results()
                 break

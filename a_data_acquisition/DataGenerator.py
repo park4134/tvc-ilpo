@@ -13,11 +13,12 @@ import math
 import os
 
 class DataGenerator():
-    def __init__(self, env_name, model_dir, observe_episodes=10000):
+    def __init__(self, env_name, model_dir, observe_episodes=10000, observe_random_episode=0):
         '''mass : kg, cycle_time & run_time : sec, action_seq : list of newtons, s_init : meter'''
         self.env_name = env_name
         self.model_dir = model_dir
         self.observe_episodes = observe_episodes
+        self.observe_random_episode = observe_random_episode
         self.get_save_path()
 
         self.force = 0.001
@@ -109,7 +110,7 @@ class DataGenerator():
         model_path = os.path.join(os.getcwd(), "runs/expert/", self.env_name, self.model_dir)
         model = PPO.load(model_path, env=env)
         vec_env = model.get_env()
-        
+        '''Deterministic'''
         for e in tqdm(range(self.observe_episodes)):
             dones = False
             obs = vec_env.reset()
@@ -122,10 +123,11 @@ class DataGenerator():
             self.state_list.append(obs[0])
 
             while not dones:
-                if np.random.uniform(0, 1) <= 0.75:
-                    action, _states = model.predict(obs, deterministic=True)  # 상태 저장 옵션 추가
-                else:
-                    action = [vec_env.action_space.sample()]
+                # if np.random.uniform(0, 1) <= 0.75:
+                    # action, _states = model.predict(obs, deterministic=True)  # 상태 저장 옵션 추가
+                # else:
+                    # action = [vec_env.action_space.sample()]
+                action, _states = model.predict(obs, deterministic=True)  # 상태 저장 옵션 추가
                 obs, rewards, dones, info = vec_env.step(action)
                 if not dones:
                 #     if self.env_name == 'MountainCar-v0':
@@ -138,6 +140,33 @@ class DataGenerator():
                     self.action_list.append(action)
                     vec_env.render()
             self.save_result()
+        '''Random'''
+        for e in tqdm(range(self.observe_random_episode)):
+            dones = False
+            obs = vec_env.reset()
+            # if self.env_name == 'MountainCar-v0':
+            #     acc = 0.0
+            #     state = (np.concatenate((obs[0], [acc])))
+            #     self.state_list.append(state)
+            # else:
+            #     self.state_list.append(obs[0])
+            self.state_list.append(obs[0])
+
+            while not dones:
+                action = [vec_env.action_space.sample()]
+                obs, rewards, dones, info = vec_env.step(action)
+                if not dones:
+                #     if self.env_name == 'MountainCar-v0':
+                #         acc = (action - 1) * self.force + math.cos(3 * obs[0][0]) * (-self.gravity)
+                #         state = (np.concatenate((obs[0], acc)))
+                #         self.state_list.append(state)
+                #     else:
+                #         self.state_list.append(obs[0])
+                    self.state_list.append(obs[0])
+                    self.action_list.append(action)
+                    vec_env.render()
+            self.save_result()
+
         vec_env.close()
 
 if __name__ == "__main__":
@@ -155,6 +184,7 @@ if __name__ == "__main__":
     data_gen = DataGenerator(
                             env_name = 'MountainCar-v0',
                             model_dir = 'PPO_MountainCar-v0_2',
-                            observe_episodes = 100
+                            observe_episodes = 500,
+                            observe_random_episode = 500
                             )
     data_gen.generate()
