@@ -2,19 +2,21 @@ import numpy as np
 import tensorflow as tf
 
 def get_loss_min(delta_s, delta_s_hat):
-    tile_delta_s = tf.reshape(tf.tile(delta_s, [1, delta_s_hat.shape[1]]), delta_s_hat.shape)
+    tile_delta_s = tf.tile(tf.expand_dims(delta_s, axis=1), [1, delta_s_hat[1], 1]) # (batch, n_state) >> (batch, n_z, n_state)
 
-    loss_min = tf.norm(tf.subtract(tile_delta_s, delta_s_hat), axis=-1)
-    loss_min = tf.reduce_mean(tf.reduce_min(loss_min, axis=1))
+    loss_min = tf.square(tf.subtract(tile_delta_s, delta_s_hat), axis=-1) # (batch, n_z, n_state)
+    loss_min = tf.reduce_min(tf.reduce_mean(loss_min, axis=-1), axis=-1) # (batch, )
+    loss_min = tf.reduce_mean(loss_min)
 
     return loss_min
 
 def get_loss_exp(delta_s, z_p, delta_s_hat):
     expect_delta_s = tf.multiply(delta_s_hat, tf.expand_dims(z_p, axis=-1))
-    expect_delta_s = tf.reduce_sum(expect_delta_s, axis=1)
+    expect_delta_s = tf.reduce_sum(expect_delta_s, axis=1) # (batch, n_state)
 
-    loss_exp = tf.subtract(delta_s, expect_delta_s)
-    loss_exp = tf.reduce_mean(tf.norm(loss_exp, axis=-1))
+    loss_exp = tf.subtract(delta_s, expect_delta_s) # (batch, n_state)
+    loss_exp = tf.reduce_mean(tf.square(loss_exp)) # (batch, )
+    loss_exp = tf.reduce_mean(loss_exp)
 
     return loss_exp
 

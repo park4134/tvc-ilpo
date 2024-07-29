@@ -3,11 +3,15 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from stable_baselines3 import PPO
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense
 from stable_baselines3.common.evaluation import evaluate_policy
+from c_action_remap.utils import gpu_limit
 from glob import glob
 from tqdm import tqdm
 import numpy as np
 import gymnasium as gym
+import tensorflow as tf
 import json
 import math
 import os
@@ -168,8 +172,54 @@ class DataGenerator():
             self.save_result()
 
         vec_env.close()
+    
+    def generate_DQN(self):
+        env = gym.make(self.env_name, render_mode="rgb_array")
+        model_path = os.path.join(os.getcwd(), "runs/expert/", self.env_name, self.model_dir)
+        model = tf.keras.models.load_model(model_path)
+        '''Deterministic'''
+        for e in tqdm(range(self.observe_episodes)):
+            dones = False
+            obs = env.reset()
+            obs = obs[0]
+            self.state_list.append(obs)
+
+            while not dones:
+                # pred = model(tf.expand_dims(obs, axis=0))
+                # action = tf.argmax(pred[0]).numpy()
+                if np.random.uniform(0, 1) <= 0.75:
+                    pred = model(tf.expand_dims(obs, axis=0))
+                    action = tf.argmax(pred[0]).numpy()  # 상태 저장 옵션 추가
+                else:
+                    action = env.action_space.sample()
+                obs, rewards, terminated, truncated, info = env.step(action)
+                dones = terminated or truncated
+                if not dones:
+                    self.state_list.append(obs)
+                    self.action_list.append(action)
+                    env.render()
+            self.save_result()
+
+        '''Random'''
+        for e in tqdm(range(self.observe_random_episode)):
+            dones = False
+            obs = env.reset()
+            self.state_list.append(obs)
+
+            while not dones:
+                action = env.action_space.sample()
+                obs, rewards, terminated, truncated, info = env.step(action)
+                dones = terminated or truncated
+                if not dones:
+                    self.state_list.append(obs)
+                    self.action_list.append(action)
+                    env.render()
+            self.save_result()
+
+        env.close()
 
 if __name__ == "__main__":
+    gpu_limit(2)
     # data_gen = DataGenerator(
     #                         env_name = 'CartPole-v1',
     #                         model_dir = 'PPO_cartpole_500.0',
@@ -183,8 +233,9 @@ if __name__ == "__main__":
     
     data_gen = DataGenerator(
                             env_name = 'MountainCar-v0',
-                            model_dir = 'PPO_MountainCar-v0_2',
+                            model_dir = 'DQN_MountainCar_3.h5',
                             observe_episodes = 500,
-                            observe_random_episode = 500
+                            observe_random_episode = 0
                             )
-    data_gen.generate()
+    # data_gen.generate()
+    data_gen.generate_DQN()
