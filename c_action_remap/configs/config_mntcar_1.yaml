@@ -11,9 +11,9 @@ e_init: 0.2
 e_decay_factor: 1
 e_min: 0.1
 action: # default : [-0.001, 0.0, 0.001]
-  - -0.002
+  # - -0.004
   - -0.001
   - 0.0
   - 0.001
-  - 0.002
-gravity: 0.0025 # default : 0.0025
+  # - 0.004
+gravity: 0.005 # default : 0.0025

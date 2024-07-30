@@ -10,11 +10,11 @@ import os
 # CustomMountainCarEnv path : /home/pcy/anaconda3/envs/ilpo/lib/python3.11/site-packages/gymnasium/envs/classic_control/custom_mntcar.py
     
 class MountainCarGame:
-    def __init__(self, episodes=10, mode='play'):
+    def __init__(self, episodes=10, mode='play', action_space=[-0.001, 0.0, 0.001], gravity=0.0025):
         self.episodes = episodes
         self.mode = mode
-        self.env = gym.make('MountainCar-v0', render_mode='human')
-        self.env_name = 'MountainCar-v0'
+        self.env = gym.make('CustomMountainCar-v0', render_mode='human', action=action_space, gravity = gravity)
+        self.env_name = 'CustomMountainCar-v0'
         
         if self.mode == 'collect':
             self.get_save_path()
@@ -111,5 +111,6 @@ class MountainCarGame:
         self.env.close()
 
 if __name__ == "__main__":
-    game = MountainCarGame(episodes=5, mode='collect')
+    # game = MountainCarGame(episodes=30, mode='collect')
+    game = MountainCarGame(episodes=10, mode='play', action_space=[-0.00075, 0.0, 0.00075])
     game.play()

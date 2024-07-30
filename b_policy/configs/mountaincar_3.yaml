@@ -3,11 +3,11 @@ seq: 1
 n_latent_action: 5
 units: 32
 layer_num: 1
-batch_size: 256
+batch_size: 512
 lrelu: 0.2
 epochs: 1000
 max_patience: 20
-learning_rate: 0.0001
+learning_rate: 0.001
 expert_num: 0
 data_num: 0
 dt: 30
