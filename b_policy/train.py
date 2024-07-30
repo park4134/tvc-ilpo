@@ -224,10 +224,10 @@ class trainer():
                 train_metric_epoch.append(metric)
 
                 grads_min = tape.gradient(loss_min, self.model.state_embedding.trainable_variables + self.model.generator.trainable_variables)
-                grads_exp = tape.gradient(loss_exp, self.model.latent_policy.trainable_variables)
+                grads_exp = tape.gradient(loss_exp, self.model.state_embedding.trainable_variables + self.model.latent_policy.trainable_variables)
 
                 self.optimizer_min.apply_gradients(zip(grads_min, self.model.state_embedding.trainable_variables + self.model.generator.trainable_variables))
-                self.optimizer_exp.apply_gradients(zip(grads_exp, self.model.latent_policy.trainable_variables))
+                self.optimizer_exp.apply_gradients(zip(grads_exp, self.model.state_embedding.trainable_variables + self.model.latent_policy.trainable_variables))
 
             print(f"Epoch : {epoch}")
             print(f"Train metric : {np.mean(train_metric_epoch):.5f}")

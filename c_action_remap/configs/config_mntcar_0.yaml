@@ -1,0 +1,19 @@
+sim: "MountainCar-v0"
+units: 64
+layer_num: 1
+batch_size: 64
+learning_rate: 0.002
+epochs: 1000
+patience: 50
+buffer_size: 50000
+min_buffer_size: 64
+e_init: 0.9
+e_decay_factor: 0.95
+e_min: 0.1
+action: # default : [-0.001, 0.0, 0.001]
+  - -0.002
+  - -0.001
+  - 0.0
+  - 0.001
+  - 0.002
+gravity: 0.0025 # default : 0.0025

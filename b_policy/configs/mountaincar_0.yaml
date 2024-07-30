@@ -1,0 +1,18 @@
+sim: 'MountainCar-v0'
+seq: 1
+n_latent_action: 2
+units: 32
+layer_num: 1
+batch_size: 256
+lrelu: 0.2
+epochs: 1000
+max_patience: 20
+learning_rate: 0.0001
+expert_num: 0
+data_num: 0
+dt: 30
+target_cols:
+- pos
+- v
+is_normalize: False
+is_standardize : False

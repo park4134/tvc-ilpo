@@ -2,9 +2,9 @@ import numpy as np
 import tensorflow as tf
 
 def get_loss_min(delta_s, delta_s_hat):
-    tile_delta_s = tf.tile(tf.expand_dims(delta_s, axis=1), [1, delta_s_hat[1], 1]) # (batch, n_state) >> (batch, n_z, n_state)
+    tile_delta_s = tf.tile(tf.expand_dims(delta_s, axis=1), [1, delta_s_hat.shape[1], 1]) # (batch, n_state) >> (batch, n_z, n_state)
 
-    loss_min = tf.square(tf.subtract(tile_delta_s, delta_s_hat), axis=-1) # (batch, n_z, n_state)
+    loss_min = tf.square(tf.subtract(tile_delta_s, delta_s_hat)) # (batch, n_z, n_state)
     loss_min = tf.reduce_min(tf.reduce_mean(loss_min, axis=-1), axis=-1) # (batch, )
     loss_min = tf.reduce_mean(loss_min)
 

@@ -189,7 +189,7 @@ class DataGenerator():
                 # action = tf.argmax(pred[0]).numpy()
                 if np.random.uniform(0, 1) <= 0.75:
                     pred = model(tf.expand_dims(obs, axis=0))
-                    action = tf.argmax(pred[0]).numpy()  # 상태 저장 옵션 추가
+                    action = tf.argmax(pred[0]).numpy()
                 else:
                     action = env.action_space.sample()
                 obs, rewards, terminated, truncated, info = env.step(action)

@@ -290,7 +290,7 @@ if __name__ == "__main__":
     #                             )
 
     preprocessor = Preprocessor(sim = 'MountainCar-v0',
-                                num = 3,
+                                num = 0,
                                 cycle_time = 30,
                                 delta_t = 30,
                                 target_cols = ['pos', 'v']
